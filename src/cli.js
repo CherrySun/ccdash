@@ -12,6 +12,7 @@
  *   ccdash search <keyword> Search sessions
  *   ccdash active           Show active Claude processes
  *   ccdash serve [port]     Start web dashboard on custom port
+ *   ccdash upgrade          Upgrade ccdash to the latest version
  */
 
 import { scanAllSessions, getActiveProcesses } from './scanner.js';
@@ -19,6 +20,9 @@ import { calculateSessionCost, aggregateCosts, getCostsByPeriod, formatCost, for
 import { loadNotes, getSessionNotes } from './notes.js';
 import { startServer } from './server.js';
 import { execSync, spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 // ─── ANSI Colors (no chalk needed) ───
 const c = {
@@ -352,6 +356,73 @@ async function cmdActive() {
   }
 }
 
+async function cmdUpgrade() {
+  const require = createRequire(import.meta.url);
+  const pkg = require('../package.json');
+  const currentVersion = pkg.version;
+  const pkgName = pkg.name;
+
+  console.log(`\n${c.cyan}${c.bold}ccdash${c.reset} ${c.dim}— Upgrade${c.reset}\n`);
+  console.log(`${c.dim}Current version:${c.reset} ${c.bold}v${currentVersion}${c.reset}`);
+
+  // Check the latest version on npm
+  console.log(`${c.dim}Checking for updates...${c.reset}`);
+  let latestVersion;
+  try {
+    latestVersion = execSync(`npm view ${pkgName} version 2>/dev/null`, { encoding: 'utf-8' }).trim();
+  } catch {
+    console.log(`${c.yellow}⚠ Could not check the latest version from npm.${c.reset}`);
+    console.log(`${c.dim}Attempting to upgrade anyway...${c.reset}\n`);
+    latestVersion = null;
+  }
+
+  if (latestVersion) {
+    if (latestVersion === currentVersion) {
+      console.log(`${c.green}✓ Already up to date! (v${currentVersion})${c.reset}\n`);
+      return;
+    }
+    console.log(`${c.yellow}New version available:${c.reset} ${c.bold}v${latestVersion}${c.reset}\n`);
+  }
+
+  // Detect how ccdash was installed
+  let installCmd;
+  try {
+    const globalPrefix = execSync('npm config get prefix', { encoding: 'utf-8' }).trim();
+    const __filename = fileURLToPath(import.meta.url);
+    const cliDir = dirname(__filename);
+
+    if (cliDir.includes(globalPrefix)) {
+      installCmd = `npm install -g ${pkgName}@latest`;
+    } else if (cliDir.includes('.npx')) {
+      installCmd = `npx ${pkgName}@latest`;
+      console.log(`${c.dim}Installed via npx — next run will use the latest version.${c.reset}\n`);
+      return;
+    } else {
+      // Probably a local/dev install or linked
+      installCmd = `npm install -g ${pkgName}@latest`;
+    }
+  } catch {
+    installCmd = `npm install -g ${pkgName}@latest`;
+  }
+
+  console.log(`${c.dim}Running:${c.reset} ${c.bold}${installCmd}${c.reset}\n`);
+  try {
+    execSync(installCmd, { stdio: 'inherit' });
+    console.log(`\n${c.green}${c.bold}✓ Upgraded successfully!${c.reset}`);
+    // Show new version
+    try {
+      const newVersion = execSync(`npm view ${pkgName} version 2>/dev/null`, { encoding: 'utf-8' }).trim();
+      console.log(`${c.dim}  v${currentVersion} → v${newVersion}${c.reset}\n`);
+    } catch {
+      console.log('');
+    }
+  } catch {
+    console.error(`\n${c.red}✗ Upgrade failed.${c.reset}`);
+    console.log(`${c.dim}Try manually: ${c.bold}${installCmd}${c.reset}\n`);
+    process.exit(1);
+  }
+}
+
 function printHelp() {
   console.log(`
 ${c.cyan}${c.bold}ccdash${c.reset} — Claude Code Session Manager
@@ -365,6 +436,7 @@ ${c.bold}USAGE${c.reset}
   ccdash search <keyword>    Search session content
   ccdash active              Show active Claude processes
   ccdash serve [port]        Web dashboard on custom port (default: 3456)
+  ccdash upgrade             Upgrade ccdash to the latest version
   ccdash help                Show this help
 
 ${c.dim}Session IDs can be abbreviated (first 8 chars).${c.reset}
@@ -388,14 +460,24 @@ switch (command) {
   case 'web':
   case 'dashboard': {
     const port = parseInt(args[1]) || 3456;
-    // Auto-open browser after server starts
-    setTimeout(() => openBrowser(`http://localhost:${port}`), 500);
-    await startServer(port);
+    try {
+      const server = await startServer(port);
+      const actualPort = server.address().port;
+      openBrowser(`http://localhost:${actualPort}`);
+    } catch (err) {
+      console.error(err.message);
+      process.exit(1);
+    }
     break;
   }
   case 'serve': {
     const port = parseInt(args[1]) || 3456;
-    await startServer(port);
+    try {
+      await startServer(port);
+    } catch (err) {
+      console.error(err.message);
+      process.exit(1);
+    }
     break;
   }
   case 'cli':
@@ -422,6 +504,10 @@ switch (command) {
   case 'active':
   case 'ps':
     await cmdActive();
+    break;
+  case 'upgrade':
+  case 'update':
+    await cmdUpgrade();
     break;
   case 'help':
   case '--help':

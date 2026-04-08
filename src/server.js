@@ -641,46 +641,72 @@ end tell`;
 /**
  * Start the HTTP server.
  */
-export async function startServer(port = 3456) {
-  _serverPort = port;
-  const server = createServer(async (req, res) => {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const pathname = url.pathname;
+export async function startServer(port = 3456, maxRetries = 10) {
+  const tryListen = (currentPort, retriesLeft) => {
+    return new Promise((resolve, reject) => {
+      _serverPort = currentPort;
+      const server = createServer(async (req, res) => {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const pathname = url.pathname;
 
-    // CORS preflight
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': `http://localhost:${port}`,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Vary': 'Origin',
+        // CORS preflight
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204, {
+            'Access-Control-Allow-Origin': `http://localhost:${currentPort}`,
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Vary': 'Origin',
+          });
+          return res.end();
+        }
+
+        // API routes
+        if (pathname.startsWith('/api/')) {
+          return handleAPI(req, res, pathname, currentPort);
+        }
+
+        // Dashboard HTML
+        if (pathname === '/' || pathname === '/index.html') {
+          return sendHTML(res, getDashboardHTML());
+        }
+
+        // 404
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
       });
-      return res.end();
-    }
 
-    // API routes
-    if (pathname.startsWith('/api/')) {
-      return handleAPI(req, res, pathname, port);
-    }
+      server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          if (retriesLeft > 0) {
+            const nextPort = currentPort + 1;
+            console.log(`\x1b[33m  ⚠ Port ${currentPort} is in use, trying ${nextPort}...\x1b[0m`);
+            server.close();
+            tryListen(nextPort, retriesLeft - 1).then(resolve, reject);
+          } else {
+            reject(new Error(
+              `\x1b[31mCould not find an available port (tried ${port}-${currentPort}).\n` +
+              `  Please free a port or specify one manually: ccdash serve <port>\x1b[0m`
+            ));
+          }
+        } else {
+          reject(err);
+        }
+      });
 
-    // Dashboard HTML
-    if (pathname === '/' || pathname === '/index.html') {
-      return sendHTML(res, getDashboardHTML());
-    }
-
-    // 404
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found');
-  });
-
-  server.listen(port, () => {
-    console.log(`
+      server.listen(currentPort, () => {
+        if (currentPort !== port) {
+          console.log(`\x1b[33m  ℹ Originally requested port ${port} was in use.\x1b[0m`);
+        }
+        console.log(`
 \x1b[36m\x1b[1m  ccdash\x1b[0m \x1b[2m— Claude Code Dashboard\x1b[0m
 
-  \x1b[1mLocal:\x1b[0m   http://localhost:${port}
+  \x1b[1mLocal:\x1b[0m   http://localhost:${currentPort}
   \x1b[2mPress Ctrl+C to stop\x1b[0m
 `);
-  });
+        resolve(server);
+      });
+    });
+  };
 
-  return server;
+  return tryListen(port, maxRetries);
 }
