@@ -1,0 +1,20 @@
+{
+  "name": "ccdash",
+  "version": "1.0.0",
+  "description": "Lightweight dashboard for managing Claude Code sessions",
+  "main": "src/cli.js",
+  "bin": {
+    "ccdash": "./src/cli.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node src/cli.js serve",
+    "test": "node src/test.js"
+  },
+  "keywords": ["claude", "claude-code", "dashboard", "session-manager"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {}
+}
