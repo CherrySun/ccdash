@@ -641,10 +641,17 @@ end tell`;
 /**
  * Start the HTTP server.
  */
-export async function startServer(port = 3456, maxRetries = 10) {
+export async function startServer(port = 3456, { maxRetries = 10, autoRetry = true } = {}) {
   const tryListen = (currentPort, retriesLeft) => {
     return new Promise((resolve, reject) => {
-      _serverPort = currentPort;
+      // Guard: port out of valid range
+      if (currentPort > 65535) {
+        return reject(new Error(
+          `\x1b[31mPort ${currentPort} is out of range (max 65535).\n` +
+          `  Please specify a lower port: ccdash serve <port>\x1b[0m`
+        ));
+      }
+
       const server = createServer(async (req, res) => {
         const url = new URL(req.url, `http://${req.headers.host}`);
         const pathname = url.pathname;
@@ -677,15 +684,17 @@ export async function startServer(port = 3456, maxRetries = 10) {
 
       server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-          if (retriesLeft > 0) {
+          if (autoRetry && retriesLeft > 0) {
             const nextPort = currentPort + 1;
             console.log(`\x1b[33m  ⚠ Port ${currentPort} is in use, trying ${nextPort}...\x1b[0m`);
-            server.close();
             tryListen(nextPort, retriesLeft - 1).then(resolve, reject);
           } else {
+            const msg = autoRetry
+              ? `Could not find an available port (tried ${port}-${currentPort}).`
+              : `Port ${currentPort} is already in use.`;
             reject(new Error(
-              `\x1b[31mCould not find an available port (tried ${port}-${currentPort}).\n` +
-              `  Please free a port or specify one manually: ccdash serve <port>\x1b[0m`
+              `\x1b[31m${msg}\n` +
+              `  Please free the port or specify another: ccdash serve <port>\x1b[0m`
             ));
           }
         } else {
@@ -694,6 +703,8 @@ export async function startServer(port = 3456, maxRetries = 10) {
       });
 
       server.listen(currentPort, () => {
+        // Only set global port after successful bind
+        _serverPort = currentPort;
         if (currentPort !== port) {
           console.log(`\x1b[33m  ℹ Originally requested port ${port} was in use.\x1b[0m`);
         }

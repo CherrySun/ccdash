@@ -13,13 +13,14 @@
  *   ccdash active           Show active Claude processes
  *   ccdash serve [port]     Start web dashboard on custom port
  *   ccdash upgrade          Upgrade ccdash to the latest version
+ *   ccdash version          Show current version
  */
 
 import { scanAllSessions, getActiveProcesses } from './scanner.js';
 import { calculateSessionCost, aggregateCosts, getCostsByPeriod, formatCost, formatTokens } from './pricing.js';
 import { loadNotes, getSessionNotes } from './notes.js';
 import { startServer } from './server.js';
-import { execSync, spawn } from 'node:child_process';
+import { execSync, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -356,71 +357,120 @@ async function cmdActive() {
   }
 }
 
-async function cmdUpgrade() {
+/**
+ * Compare two semver strings. Returns:
+ *   -1 if a < b, 0 if a === b, 1 if a > b
+ */
+function compareSemver(a, b) {
+  const pa = a.replace(/^v/, '').split('.').map(Number);
+  const pb = b.replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+function getLocalVersion() {
   const require = createRequire(import.meta.url);
   const pkg = require('../package.json');
-  const currentVersion = pkg.version;
-  const pkgName = pkg.name;
+  return { version: pkg.version, name: pkg.name };
+}
+
+function isValidPkgName(name) {
+  // npm package name: scoped (@scope/name) or unscoped, no shell chars
+  return /^(@[a-z0-9._-]+\/)?[a-z0-9._-]+$/i.test(name);
+}
+
+async function cmdUpgrade() {
+  const { version: currentVersion, name: pkgName } = getLocalVersion();
 
   console.log(`\n${c.cyan}${c.bold}ccdash${c.reset} ${c.dim}— Upgrade${c.reset}\n`);
   console.log(`${c.dim}Current version:${c.reset} ${c.bold}v${currentVersion}${c.reset}`);
 
-  // Check the latest version on npm
+  // Validate package name to prevent command injection
+  if (!isValidPkgName(pkgName)) {
+    console.error(`${c.red}✗ Invalid package name in package.json: "${pkgName}"${c.reset}\n`);
+    process.exit(1);
+  }
+
+  // Check latest version on npm (using execFileSync to avoid shell injection)
   console.log(`${c.dim}Checking for updates...${c.reset}`);
   let latestVersion;
   try {
-    latestVersion = execSync(`npm view ${pkgName} version 2>/dev/null`, { encoding: 'utf-8' }).trim();
+    latestVersion = execFileSync('npm', ['view', pkgName, 'version'], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
   } catch {
-    console.log(`${c.yellow}⚠ Could not check the latest version from npm.${c.reset}`);
-    console.log(`${c.dim}Attempting to upgrade anyway...${c.reset}\n`);
-    latestVersion = null;
+    console.error(`${c.red}✗ Cannot reach npm registry. Please check your network connection.${c.reset}\n`);
+    process.exit(1);
   }
 
-  if (latestVersion) {
-    if (latestVersion === currentVersion) {
-      console.log(`${c.green}✓ Already up to date! (v${currentVersion})${c.reset}\n`);
-      return;
-    }
-    console.log(`${c.yellow}New version available:${c.reset} ${c.bold}v${latestVersion}${c.reset}\n`);
+  // Semver comparison: already up to date or local is newer (dev/prerelease)
+  const cmp = compareSemver(currentVersion, latestVersion);
+  if (cmp === 0) {
+    console.log(`${c.green}✓ Already up to date! (v${currentVersion})${c.reset}\n`);
+    return;
   }
+  if (cmp > 0) {
+    console.log(`${c.yellow}ℹ Local version (v${currentVersion}) is newer than npm (v${latestVersion}).${c.reset}`);
+    console.log(`${c.dim}  You appear to be running a development or pre-release build. Skipping.${c.reset}\n`);
+    return;
+  }
+  console.log(`${c.yellow}New version available:${c.reset} ${c.bold}v${latestVersion}${c.reset}\n`);
 
   // Detect how ccdash was installed
-  let installCmd;
+  const installArgs = ['install', '-g', `${pkgName}@latest`];
   try {
-    const globalPrefix = execSync('npm config get prefix', { encoding: 'utf-8' }).trim();
+    const globalPrefix = execFileSync('npm', ['config', 'get', 'prefix'], { encoding: 'utf-8' }).trim();
     const __filename = fileURLToPath(import.meta.url);
     const cliDir = dirname(__filename);
 
     if (cliDir.includes(globalPrefix)) {
-      installCmd = `npm install -g ${pkgName}@latest`;
-    } else if (cliDir.includes('.npx')) {
-      installCmd = `npx ${pkgName}@latest`;
-      console.log(`${c.dim}Installed via npx — next run will use the latest version.${c.reset}\n`);
+      // Installed globally via npm — use default installArgs
+    } else if (cliDir.includes('_npx') || cliDir.includes('.npx') || process.env.npm_command === 'npx') {
+      console.log(`${c.dim}Installed via npx — next run of ${c.bold}npx ${pkgName}${c.reset}${c.dim} will use v${latestVersion}.${c.reset}\n`);
       return;
-    } else {
-      // Probably a local/dev install or linked
-      installCmd = `npm install -g ${pkgName}@latest`;
     }
+    // else: local/dev/linked install — fallthrough to global install
   } catch {
-    installCmd = `npm install -g ${pkgName}@latest`;
+    // Cannot detect — fallthrough to global install
   }
 
+  const installCmd = `npm install -g ${pkgName}@latest`;
   console.log(`${c.dim}Running:${c.reset} ${c.bold}${installCmd}${c.reset}\n`);
   try {
-    execSync(installCmd, { stdio: 'inherit' });
-    console.log(`\n${c.green}${c.bold}✓ Upgraded successfully!${c.reset}`);
-    // Show new version
-    try {
-      const newVersion = execSync(`npm view ${pkgName} version 2>/dev/null`, { encoding: 'utf-8' }).trim();
-      console.log(`${c.dim}  v${currentVersion} → v${newVersion}${c.reset}\n`);
-    } catch {
-      console.log('');
+    execFileSync('npm', installArgs, { stdio: 'inherit' });
+  } catch (err) {
+    const errMsg = err.stderr?.toString() || err.message || '';
+    if (errMsg.includes('EACCES') || errMsg.includes('permission denied') || errMsg.includes('Permission denied')) {
+      console.error(`\n${c.red}✗ Permission denied. Try:${c.reset}`);
+      console.log(`  ${c.bold}sudo npm install -g ${pkgName}@latest${c.reset}\n`);
+    } else {
+      console.error(`\n${c.red}✗ Upgrade failed.${c.reset}`);
+      console.log(`${c.dim}Try manually: ${c.bold}${installCmd}${c.reset}\n`);
     }
-  } catch {
-    console.error(`\n${c.red}✗ Upgrade failed.${c.reset}`);
-    console.log(`${c.dim}Try manually: ${c.bold}${installCmd}${c.reset}\n`);
     process.exit(1);
   }
+
+  // Read actual installed version (not from registry)
+  let newVersion = latestVersion;
+  try {
+    const listOutput = execFileSync('npm', ['list', '-g', pkgName, '--json', '--depth=0'], {
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const listData = JSON.parse(listOutput);
+    newVersion = listData.dependencies?.[pkgName]?.version || latestVersion;
+  } catch {
+    // Fallback to registry version — acceptable
+  }
+
+  console.log(`\n${c.green}${c.bold}✓ Upgraded successfully!${c.reset}`);
+  console.log(`${c.dim}  v${currentVersion} → v${newVersion}${c.reset}\n`);
 }
 
 function printHelp() {
@@ -437,6 +487,7 @@ ${c.bold}USAGE${c.reset}
   ccdash active              Show active Claude processes
   ccdash serve [port]        Web dashboard on custom port (default: 3456)
   ccdash upgrade             Upgrade ccdash to the latest version
+  ccdash version             Show current version
   ccdash help                Show this help
 
 ${c.dim}Session IDs can be abbreviated (first 8 chars).${c.reset}
@@ -472,8 +523,9 @@ switch (command) {
   }
   case 'serve': {
     const port = parseInt(args[1]) || 3456;
+    const hasExplicitPort = !!args[1];
     try {
-      await startServer(port);
+      await startServer(port, { autoRetry: !hasExplicitPort });
     } catch (err) {
       console.error(err.message);
       process.exit(1);
@@ -509,6 +561,13 @@ switch (command) {
   case 'update':
     await cmdUpgrade();
     break;
+  case 'version':
+  case '--version':
+  case '-v': {
+    const { version } = getLocalVersion();
+    console.log(`ccdash v${version}`);
+    break;
+  }
   case 'help':
   case '--help':
   case '-h':
