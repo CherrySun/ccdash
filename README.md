@@ -107,15 +107,18 @@ Built with native Node.js (>=18) — no Express, no React, no build step. Just r
 ### Install
 
 ```bash
-# Option 1: Clone and run directly
-git clone https://github.com/user/ccdash.git
+git clone https://github.com/CherrySun/ccdash.git
 cd ccdash
+
+# Option A: Run directly
 node src/cli.js
 
-# Option 2: Install globally via npm
+# Option B: Install globally, then use "ccdash" from anywhere
 npm install -g .
 ccdash
 ```
+
+> **Requirements:** Node.js >= 18. No other dependencies needed.
 
 The dashboard opens automatically at **http://localhost:3456**.
 
