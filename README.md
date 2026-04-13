@@ -128,8 +128,11 @@ The dashboard opens automatically at **http://localhost:3456**.
 | **Track costs** | Click the **Costs** tab, select a time period |
 | **Search everything** | Use the search bar — searches messages, paths, tags, notes |
 | **Resume a session** | Click **Resume** in session detail → opens `claude --resume` in Terminal |
+| **Send a prompt** | Type a prompt in session detail → resumes session with your message in Terminal |
 | **Organize with tags** | Click **+ Tag** on any session, filter by tag chips at the top |
 | **Add notes** | Click the notes area in session detail, type and save |
+| **Preview files** | Click any file in the project file tree to see syntax-highlighted preview |
+| **Edit CLAUDE.md** | Click the CLAUDE.md tab in sidebar to view/edit with live preview |
 | **Monitor active sessions** | Active sessions show a 🟢 badge; use **Focus** / **Kill** buttons |
 
 ### CLI Commands
@@ -159,13 +162,20 @@ ccdash help                # Show help
 - **Active Process Monitor** — Real-time view of running Claude Code processes with focus/kill controls
 - **Full-Text Search** — Search across message content, folder paths, tags, titles, notes, and descriptions
 - **Session Management** — Resume sessions in Terminal, rename/alias sessions, add notes & tags, delete sessions
-- **Project File Browser** — Browse project directories with Finder integration (macOS)
+- **Prompt Input** — Send a prompt to resume a session directly from the dashboard, opens in a new Terminal tab
+- **Project File Browser** — Browse project directories with inline file preview (syntax-highlighted, line numbers)
+- **CLAUDE.md Editor** — View and edit `~/.claude/CLAUDE.md` with live preview and markdown rendering
 
 ### Organization
 - **Tags** — Color-coded tags with deterministic hashing, filter/group sessions by tag
 - **Notes** — Free-text notes per session
 - **Rename** — Custom display names for sessions (inline editing)
 - **Group By** — Switch between project-based and tag-based grouping
+
+### UX & Feedback
+- **Resume Feedback** — Toast notifications on resume success/failure, with warning styling for errors
+- **Loading States** — Button spinner animations during async operations (resume, kill, send prompt)
+- **Live Status** — Active session status dots refresh automatically after actions
 
 ## Architecture
 
@@ -180,6 +190,8 @@ src/
 ├── scanner.js            ← Session JSONL parser & process detector
 ├── pricing.js            ← Token cost calculator (Sonnet/Opus pricing)
 └── notes.js              ← Notes/tags/rename storage manager
+
+SPEC.md                   ← Product specification & verification test plan
 ```
 
 **Zero dependencies.** No `node_modules`, no `package-lock.json`. Everything uses Node.js built-in modules (`http`, `fs`, `child_process`, `path`, `os`).
@@ -200,10 +212,14 @@ src/
 | POST | `/api/rename` | Set session display name |
 | POST | `/api/refresh` | Force cache refresh |
 | POST | `/api/resume` | Resume session in Terminal |
+| POST | `/api/send-prompt` | Resume session with a prompt in Terminal |
 | POST | `/api/focus` | Focus Terminal tab (macOS) |
 | POST | `/api/kill` | Kill active session process |
 | POST | `/api/delete-session` | Delete session JSONL file |
 | POST | `/api/open-finder` | Reveal in Finder (macOS) |
+| GET | `/api/file-content` | Read file content for preview |
+| GET | `/api/claude-md` | Read ~/.claude/CLAUDE.md |
+| POST | `/api/claude-md` | Write to ~/.claude/CLAUDE.md |
 
 ## Cost Calculation
 

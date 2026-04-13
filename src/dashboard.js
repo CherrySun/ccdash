@@ -639,6 +639,78 @@ a:hover { text-decoration: underline; }
   color: #fff;
 }
 
+.btn.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+.btn.loading::after {
+  content: '';
+  width: 12px; height: 12px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+  margin-left: 4px;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Prompt Input ─── */
+.prompt-card { position: relative; }
+.prompt-input-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.prompt-input {
+  flex: 1;
+  min-height: 60px;
+  max-height: 160px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.prompt-input:focus {
+  border-color: var(--accent);
+}
+.prompt-input::placeholder {
+  color: var(--text-muted);
+}
+.prompt-send-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--accent-dim);
+  background: var(--accent-dim);
+  color: #fff;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.prompt-send-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.prompt-send-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.prompt-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
 /* ─── Info Grid ─── */
 .info-grid {
   display: grid;
@@ -1419,6 +1491,141 @@ a:hover { text-decoration: underline; }
   display: none;
 }
 
+/* ─── File Preview Panel ─── */
+.folder-layout {
+  display: flex;
+  gap: 16px;
+  min-height: 400px;
+}
+.folder-tree-pane {
+  flex: 0 0 45%;
+  min-width: 0;
+  overflow: auto;
+}
+.folder-preview-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.file-preview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.file-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+.file-preview-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-preview-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.file-preview-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  position: relative;
+}
+.file-preview-code {
+  margin: 0;
+  padding: 12px 0;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  tab-size: 2;
+  counter-reset: line;
+}
+.file-preview-line {
+  display: flex;
+  padding: 0 16px 0 0;
+  min-height: 20px;
+}
+.file-preview-line:hover {
+  background: var(--bg-hover);
+}
+.file-preview-ln {
+  display: inline-block;
+  width: 48px;
+  min-width: 48px;
+  text-align: right;
+  padding-right: 12px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  user-select: none;
+  flex-shrink: 0;
+}
+.file-preview-content {
+  flex: 1;
+  white-space: pre;
+  overflow-x: auto;
+  min-width: 0;
+}
+.file-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 8px;
+  padding: 40px;
+  text-align: center;
+}
+.file-preview-empty .icon { font-size: 32px; opacity: 0.4; }
+.file-preview-empty .title { font-size: 14px; color: var(--text-secondary); }
+.file-preview-empty .desc { font-size: 12px; }
+.file-preview-binary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 8px;
+  padding: 40px;
+}
+.file-preview-binary .icon { font-size: 36px; opacity: 0.5; }
+.file-preview-truncated {
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  flex-shrink: 0;
+}
+.tree-row.selected {
+  background: var(--accent-glow);
+  border-right: 2px solid var(--accent);
+}
+@media (max-width: 900px) {
+  .folder-layout { flex-direction: column; }
+  .folder-tree-pane { flex: none; max-height: 40vh; }
+}
+
 /* ─── Rename Inline ─── */
 .rename-display {
   display: inline-flex;
@@ -1548,6 +1755,165 @@ a:hover { text-decoration: underline; }
   letter-spacing: -1px;
 }
 
+/* ─── CLAUDE.md Editor ─── */
+.claude-md-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+.claude-md-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+.claude-md-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.claude-md-title .icon {
+  font-size: 22px;
+}
+.claude-md-path {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.claude-md-actions {
+  display: flex;
+  gap: 8px;
+}
+.claude-md-tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.claude-md-tab {
+  padding: 8px 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.claude-md-tab:hover {
+  color: var(--text-primary);
+}
+.claude-md-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.claude-md-editor {
+  width: 100%;
+  min-height: 500px;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition);
+  tab-size: 2;
+}
+.claude-md-editor:focus {
+  border-color: var(--accent);
+}
+.claude-md-preview {
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  min-height: 500px;
+  line-height: 1.8;
+  overflow-y: auto;
+}
+.claude-md-preview h1, .claude-md-preview h2, .claude-md-preview h3 {
+  color: var(--text-primary);
+  margin: 20px 0 10px 0;
+  font-weight: 700;
+}
+.claude-md-preview h1 { font-size: 22px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.claude-md-preview h2 { font-size: 18px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.claude-md-preview h3 { font-size: 15px; }
+.claude-md-preview p { margin: 8px 0; color: var(--text-secondary); }
+.claude-md-preview ul, .claude-md-preview ol { margin: 8px 0 8px 20px; color: var(--text-secondary); }
+.claude-md-preview li { margin: 4px 0; }
+.claude-md-preview code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+}
+.claude-md-preview pre {
+  background: var(--bg-tertiary);
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  margin: 10px 0;
+  border: 1px solid var(--border);
+}
+.claude-md-preview pre code {
+  background: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.claude-md-preview blockquote {
+  border-left: 3px solid var(--accent-dim);
+  padding: 4px 16px;
+  margin: 10px 0;
+  color: var(--text-muted);
+  background: rgba(108,182,255,0.03);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.claude-md-preview hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+.claude-md-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--text-muted);
+  text-align: center;
+  gap: 12px;
+}
+.claude-md-empty .icon { font-size: 40px; opacity: 0.5; }
+.claude-md-empty .title { font-size: 16px; font-weight: 600; color: var(--text-secondary); }
+.claude-md-empty .desc { font-size: 13px; max-width: 400px; }
+.claude-md-save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+.claude-md-save-bar .status {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.claude-md-save-bar .status.modified {
+  color: var(--yellow);
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
   #sidebar { width: 100%; height: auto; max-height: 35vh; border-right: none; border-bottom: 1px solid var(--border); }
@@ -1574,6 +1940,7 @@ a:hover { text-decoration: underline; }
     <div class="nav-tabs">
       <button class="nav-tab active" data-view="sessions" onclick="switchView('sessions')">Sessions</button>
       <button class="nav-tab" data-view="costs" onclick="switchView('costs')">Costs</button>
+      <button class="nav-tab" data-view="claude-md" onclick="switchView('claude-md')">CLAUDE.md</button>
     </div>
     <button class="btn-refresh" onclick="refreshData()" title="Refresh data" id="refresh-btn">↻</button>
   </div>
@@ -1595,6 +1962,7 @@ a:hover { text-decoration: underline; }
       <div id="costs-view" class="hidden"></div>
       <div id="search-results" class="hidden"></div>
       <div id="folder-view" class="hidden"></div>
+      <div id="claude-md-view" class="hidden"></div>
     </div>
   </div>
 </div>
@@ -1698,7 +2066,25 @@ async function loadSessions() {
 
 async function loadActive() {
   try {
+    const prev = state.activeProcesses;
     state.activeProcesses = await api('active');
+
+    // Detect changes: compare active session IDs
+    const prevIds = new Set(prev.filter(p => p.isRunning).map(p => p.sessionId));
+    const currIds = new Set(state.activeProcesses.filter(p => p.isRunning).map(p => p.sessionId));
+    const changed = prevIds.size !== currIds.size || [...prevIds].some(id => !currIds.has(id)) || [...currIds].some(id => !prevIds.has(id));
+
+    if (changed) {
+      // Active set changed — update session cards and sidebar status badges
+      renderSidebar();
+      renderSessionsOverview();
+      // If viewing a session detail whose active state changed, refresh it
+      if (state.selectedSession) {
+        const wasActive = prevIds.has(state.selectedSession);
+        const isActive = currIds.has(state.selectedSession);
+        if (wasActive !== isActive) await showSession(state.selectedSession);
+      }
+    }
   } catch (err) {
     console.error('Failed to load active processes:', err);
     state.activeProcesses = [];
@@ -1725,6 +2111,16 @@ async function refreshData() {
 // ─── Helper: get active process for a session ───
 function getActiveProc(sessionId) {
   return state.activeProcesses.find(p => p.isRunning && p.sessionId === sessionId);
+}
+
+// ─── Helper: resolve live status (overrides stale session data with active process info) ───
+function liveStatus(session) {
+  // If activeProcesses confirms this session is running, it's active
+  if (getActiveProc(session.id)) return 'active';
+  // If activeProcesses hasn't loaded yet (empty), trust the server-reported status
+  if (state.activeProcesses.length === 0) return session.status;
+  // activeProcesses is loaded but this session isn't in it — downgrade 'active' to 'completed'
+  return session.status === 'active' ? 'completed' : session.status;
 }
 
 // ─── Helper: render quick action buttons ───
@@ -1766,7 +2162,7 @@ function renderSidebar() {
       const tags = (s.tags || []).map(t => tagBadgeHTML(t, false)).join('');
       html += '<div class="session-item' + (state.selectedSession === s.id ? ' selected' : '') + '" data-id="' + s.id + '" onclick="showSession(\\'' + s.id + '\\')">';
       html += '<div class="session-title-row">';
-      html += '<span class="session-status-icon ' + s.status + '" title="' + s.status + '"></span>';
+      html += '<span class="session-status-icon ' + liveStatus(s) + '" title="' + liveStatus(s) + '"></span>';
       html += '<span class="session-title">' + esc(truncate(displayTitle, 55)) + '</span>';
       html += '</div>';
       html += '<div class="session-meta">';
@@ -1987,7 +2383,7 @@ function renderOverviewCard(s) {
   const displayTitle = s.rename || s.firstUserMessage || s.lastPrompt || '(empty session)';
   let html = '<div class="overview-card" onclick="showSession(\\'' + s.id + '\\')">';
   html += '<div class="oc-top">';
-  html += '<span class="oc-status ' + s.status + '" title="' + s.status + '"></span>';
+  html += '<span class="oc-status ' + liveStatus(s) + '" title="' + liveStatus(s) + '"></span>';
   html += '<span class="oc-title" title="' + esc(displayTitle) + '">' + esc(truncate(displayTitle, 60)) + '</span>';
   html += '<span class="oc-id">' + s.id.slice(0,8) + '</span>';
   html += '</div>';
@@ -2032,6 +2428,7 @@ async function showSession(id) {
   costsView.classList.add('hidden');
   searchResults.classList.add('hidden');
   folderView.classList.add('hidden');
+  document.getElementById('claude-md-view').classList.add('hidden');
   detail.classList.remove('hidden');
   detail.innerHTML = '<div class="loading">Loading session…</div>';
 
@@ -2052,7 +2449,8 @@ async function showSession(id) {
 
   // Header
   html += '<div class="detail-header">';
-  html += '<span class="status-badge ' + s.status + '">' + s.status + '</span>';
+  const sessionStatus = liveStatus(s);
+  html += '<span class="status-badge ' + sessionStatus + '">' + sessionStatus + '</span>';
   html += '<span class="detail-title rename-display" onclick="promptRename(\\'' + s.id + '\\', this)" title="Click to rename">' + esc(sessionTitle) + '<span class="rename-edit-icon">✎</span></span>';
   html += '<span class="detail-id">' + s.id.slice(0,8) + '</span>';
   html += '<div class="detail-actions">';
@@ -2122,6 +2520,16 @@ async function showSession(id) {
   html += '</div>';
   html += '</div>';
 
+  // Send Prompt Card
+  html += '<div class="card prompt-card">';
+  html += '<div class="card-header"><span class="card-header-icon">▶</span> Send Prompt</div>';
+  html += '<div class="prompt-input-wrap">';
+  html += '<textarea class="prompt-input" id="prompt-' + s.id + '" placeholder="Type a prompt to send to this session…" onkeydown="if(event.key===\\'Enter\\'&&(event.metaKey||event.ctrlKey)){event.preventDefault();sendPrompt(\\'' + s.id + '\\');}"></textarea>';
+  html += '<button class="prompt-send-btn" id="prompt-send-' + s.id + '" onclick="sendPrompt(\\'' + s.id + '\\')">Send</button>';
+  html += '</div>';
+  html += '<div class="prompt-hint">⌘+Enter to send. Opens in a new Terminal tab via <code>claude --resume</code>.</div>';
+  html += '</div>';
+
   // Conversation Card
   if (s.messages && s.messages.length > 0) {
     html += '<div class="card">';
@@ -2169,6 +2577,7 @@ async function showCosts() {
   detail.classList.add('hidden');
   searchResults.classList.add('hidden');
   folderView.classList.add('hidden');
+  document.getElementById('claude-md-view').classList.add('hidden');
   costsView.classList.remove('hidden');
   costsView.innerHTML = '<div class="loading">Calculating costs…</div>';
 
@@ -2354,12 +2763,51 @@ function hideSearchResults() {
     document.getElementById('session-detail').classList.remove('hidden');
   } else if (state.currentView === 'costs') {
     document.getElementById('costs-view').classList.remove('hidden');
+  } else if (state.currentView === 'claude-md') {
+    document.getElementById('claude-md-view').classList.remove('hidden');
   } else {
     document.getElementById('sessions-overview').classList.remove('hidden');
   }
 }
 
 // ─── Actions ───
+
+// Helper: poll for state change after an action
+async function refreshAfterAction(sessionId, { expectActive = null, maxAttempts = 6, interval = 1500 } = {}) {
+  let matched = false;
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(r => setTimeout(r, interval));
+    await api('refresh', { method: 'POST' });
+    await loadSessions();
+    await loadActive();
+    // Check if the expected state change happened
+    if (expectActive !== null) {
+      const isActive = state.activeProcesses.some(p => p.sessionId === sessionId && p.isRunning);
+      if (isActive === expectActive) { matched = true; break; }
+    }
+  }
+  // Always force a full UI refresh after action completes
+  renderSidebar();
+  renderSessionsOverview();
+  renderActiveStatus();
+  if (sessionId && state.selectedSession === sessionId) {
+    await showSession(sessionId);
+  }
+  return matched;
+}
+
+// Helper: set loading state on a button
+function setBtnLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    btn.classList.add('loading');
+    btn.dataset.origText = btn.textContent;
+  } else {
+    btn.classList.remove('loading');
+    if (btn.dataset.origText) btn.textContent = btn.dataset.origText;
+  }
+}
+
 function copyResume(id) {
   navigator.clipboard.writeText('claude --resume ' + id).then(() => showToast('Copied: claude --resume ' + id.slice(0,8) + '…'));
 }
@@ -2382,6 +2830,8 @@ async function focusSession(pid) {
 }
 
 async function resumeSession(sessionId) {
+  const btn = event && event.target ? event.target.closest('.btn,.qa-btn') : null;
+  setBtnLoading(btn, true);
   try {
     const res = await api('resume', {
       method: 'POST',
@@ -2390,26 +2840,17 @@ async function resumeSession(sessionId) {
     });
     if (res.ok) {
       showToast('Resuming session in Terminal…');
-      // Refresh data after a delay to pick up the newly-started process
-      // The Claude process needs a moment to appear in the process table
-      setTimeout(async () => {
-        await api('refresh', { method: 'POST' });
-        await loadSessions();
-        await loadActive();
-        if (state.selectedSession === sessionId) await showSession(sessionId);
-      }, 2000);
-      // Do a second refresh a bit later in case the first was too early
-      setTimeout(async () => {
-        await api('refresh', { method: 'POST' });
-        await loadSessions();
-        await loadActive();
-        if (state.selectedSession === sessionId) await showSession(sessionId);
-      }, 5000);
+      const became = await refreshAfterAction(sessionId, { expectActive: true });
+      if (!became) {
+        showToast('⚠ Resume may have failed — session not detected as active');
+      }
     } else {
-      showToast('Resume failed: ' + (res.error || 'unknown'));
+      showToast('⚠ Resume failed: ' + (res.error || 'unknown'));
     }
   } catch (err) {
-    showToast('Resume error: ' + err.message);
+    showToast('⚠ Resume error: ' + err.message);
+  } finally {
+    setBtnLoading(btn, false);
   }
 }
 
@@ -2422,6 +2863,8 @@ async function killSession(pid, sessionId) {
     confirmClass: 'danger',
   });
   if (!ok) return;
+  const btn = event && event.target ? event.target.closest('.btn,.qa-btn') : null;
+  setBtnLoading(btn, true);
   try {
     const res = await api('kill', {
       method: 'POST',
@@ -2430,18 +2873,14 @@ async function killSession(pid, sessionId) {
     });
     if (res.ok) {
       showToast('Session killed (PID ' + pid + ')');
-      // Refresh data after killing
-      setTimeout(async () => {
-        await api('refresh', { method: 'POST' });
-        await loadSessions();
-        await loadActive();
-        if (sessionId) await showSession(sessionId);
-      }, 1000);
+      await refreshAfterAction(sessionId, { expectActive: false, maxAttempts: 4, interval: 1000 });
     } else {
       showToast('Kill failed: ' + (res.error || 'unknown'));
     }
   } catch (err) {
     showToast('Kill error: ' + err.message);
+  } finally {
+    setBtnLoading(btn, false);
   }
 }
 
@@ -2616,6 +3055,39 @@ async function deleteSession(sessionId) {
   }
 }
 
+// ─── Send Prompt ───
+async function sendPrompt(sessionId) {
+  const textarea = document.getElementById('prompt-' + sessionId);
+  const btn = document.getElementById('prompt-send-' + sessionId);
+  const prompt = (textarea ? textarea.value : '').trim();
+  if (!prompt) { showToast('Please enter a prompt'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    const res = await api('send-prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, prompt }),
+    });
+    if (res.ok) {
+      showToast('Prompt sent — session opened in Terminal');
+      textarea.value = '';
+      const became = await refreshAfterAction(sessionId, { expectActive: true });
+      if (!became) {
+        showToast('⚠ Session may not have started — not detected as active');
+      }
+    } else {
+      showToast('⚠ Send failed: ' + (res.error || 'unknown'));
+    }
+  } catch (err) {
+    showToast('Send error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send';
+  }
+}
+
 // ─── Folder Tree View ───
 async function showProjectFolder(folderPath) {
   state.selectedSession = null;
@@ -2631,6 +3103,7 @@ async function showProjectFolder(folderPath) {
   detail.classList.add('hidden');
   costsView.classList.add('hidden');
   searchResults.classList.add('hidden');
+  document.getElementById('claude-md-view').classList.add('hidden');
   folderView.classList.remove('hidden');
 
   const shortPath = folderPath.replace(/^\\/Users\\/[^/]+/, '~');
@@ -2638,7 +3111,12 @@ async function showProjectFolder(folderPath) {
     + '<span class="view-title" style="margin-bottom:0">📁 ' + esc(shortPath) + '</span>'
     + '<button class="btn folder-view-open" onclick="openInFinder(\\'' + esc(folderPath).replace(/'/g, "\\\\'") + '\\')">Open in Finder</button>'
     + '</div>'
-    + '<div class="tree-container" id="tree-root"><div class="loading">Loading…</div></div>';
+    + '<div class="folder-layout">'
+    + '<div class="folder-tree-pane"><div class="tree-container" id="tree-root"><div class="loading">Loading…</div></div></div>'
+    + '<div class="folder-preview-pane"><div class="file-preview-card" id="file-preview">'
+    + '<div class="file-preview-empty"><div class="icon">📄</div><div class="title">Select a file to preview</div><div class="desc">Click any file in the tree to see its contents here.</div></div>'
+    + '</div></div>'
+    + '</div>';
 
   // Load root level
   try {
@@ -2658,7 +3136,7 @@ function renderTreeNodes(items, depth) {
     const escapedPath = esc(item.path).replace(/'/g, "\\\\'");
 
     html += '<div class="tree-node">';
-    html += '<div class="tree-row" ' + (item.isDirectory ? 'onclick="toggleTreeNode(this, \\'' + escapedPath + '\\')"' : '') + '>';
+    html += '<div class="tree-row" ' + (item.isDirectory ? 'onclick="toggleTreeNode(this, \\'' + escapedPath + '\\')"' : 'onclick="previewFile(this, \\'' + escapedPath + '\\')"') + '>';
     html += indent;
     if (item.isDirectory) {
       html += '<span class="tree-arrow">▾</span>';
@@ -2725,6 +3203,112 @@ async function toggleTreeNode(rowEl, dirPath) {
   }
 }
 
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function guessLang(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const map = {
+    js: 'javascript', mjs: 'javascript', cjs: 'javascript',
+    ts: 'typescript', tsx: 'typescript', jsx: 'javascript',
+    py: 'python', rb: 'ruby', go: 'go', rs: 'rust',
+    java: 'java', c: 'c', cpp: 'cpp', h: 'c',
+    json: 'json', yaml: 'yaml', yml: 'yaml', toml: 'toml',
+    md: 'markdown', html: 'html', css: 'css', scss: 'scss',
+    sh: 'bash', bash: 'bash', zsh: 'bash',
+    sql: 'sql', xml: 'xml', svg: 'xml',
+  };
+  return map[ext] || '';
+}
+
+async function previewFile(rowEl, filePath) {
+  // Highlight selected row
+  document.querySelectorAll('#tree-root .tree-row.selected').forEach(el => el.classList.remove('selected'));
+  rowEl.classList.add('selected');
+
+  const preview = document.getElementById('file-preview');
+  if (!preview) return;
+
+  const fileName = filePath.split('/').pop();
+  preview.innerHTML = '<div class="file-preview-header">'
+    + '<span style="font-size:14px">' + fileIcon(fileName) + '</span>'
+    + '<span class="file-preview-name">' + esc(fileName) + '</span>'
+    + '<span class="file-preview-meta">Loading…</span>'
+    + '</div>'
+    + '<div class="file-preview-body"><div style="padding:24px;color:var(--text-muted);text-align:center">Loading…</div></div>';
+
+  try {
+    const data = await api('file-content?path=' + encodeURIComponent(filePath));
+
+    if (data.error && !data.tooLarge) {
+      preview.innerHTML = '<div class="file-preview-header">'
+        + '<span style="font-size:14px">' + fileIcon(fileName) + '</span>'
+        + '<span class="file-preview-name">' + esc(fileName) + '</span>'
+        + '</div>'
+        + '<div class="file-preview-body"><div class="file-preview-empty"><div class="icon">⚠️</div><div class="title">' + esc(data.error) + '</div></div></div>';
+      return;
+    }
+
+    if (data.tooLarge) {
+      preview.innerHTML = '<div class="file-preview-header">'
+        + '<span style="font-size:14px">' + fileIcon(fileName) + '</span>'
+        + '<span class="file-preview-name">' + esc(data.name) + '</span>'
+        + '<span class="file-preview-meta">' + formatFileSize(data.size) + '</span>'
+        + '</div>'
+        + '<div class="file-preview-body"><div class="file-preview-binary"><div class="icon">📦</div><div>' + esc(data.error) + '</div></div></div>';
+      return;
+    }
+
+    if (data.binary) {
+      preview.innerHTML = '<div class="file-preview-header">'
+        + '<span style="font-size:14px">' + fileIcon(fileName) + '</span>'
+        + '<span class="file-preview-name">' + esc(data.name) + '</span>'
+        + '<span class="file-preview-meta">' + formatFileSize(data.size) + '</span>'
+        + '</div>'
+        + '<div class="file-preview-body"><div class="file-preview-binary"><div class="icon">🔮</div><div>Binary file — cannot preview</div></div></div>';
+      return;
+    }
+
+    // Render code with line numbers
+    const lines = data.content.split('\\n');
+    let codeHtml = '<div class="file-preview-code">';
+    for (let i = 0; i < lines.length; i++) {
+      codeHtml += '<div class="file-preview-line">';
+      codeHtml += '<span class="file-preview-ln">' + (i + 1) + '</span>';
+      codeHtml += '<span class="file-preview-content">' + esc(lines[i]) + '</span>';
+      codeHtml += '</div>';
+    }
+    codeHtml += '</div>';
+
+    const metaParts = [formatFileSize(data.size)];
+    const lang = guessLang(data.name);
+    if (lang) metaParts.push(lang);
+    metaParts.push(data.totalLines + ' lines');
+
+    let html = '<div class="file-preview-header">'
+      + '<span style="font-size:14px">' + fileIcon(data.name) + '</span>'
+      + '<span class="file-preview-name">' + esc(data.name) + '</span>'
+      + '<span class="file-preview-meta">' + metaParts.join(' · ') + '</span>'
+      + '</div>'
+      + '<div class="file-preview-body">' + codeHtml + '</div>';
+
+    if (data.truncated) {
+      html += '<div class="file-preview-truncated">Showing first 500 of ' + data.totalLines + ' lines</div>';
+    }
+
+    preview.innerHTML = html;
+  } catch (err) {
+    preview.innerHTML = '<div class="file-preview-header">'
+      + '<span style="font-size:14px">' + fileIcon(fileName) + '</span>'
+      + '<span class="file-preview-name">' + esc(fileName) + '</span>'
+      + '</div>'
+      + '<div class="file-preview-body"><div class="file-preview-empty"><div class="icon">⚠️</div><div class="title">Preview failed</div><div class="desc">' + esc(err.message) + '</div></div></div>';
+  }
+}
+
 async function openInFinder(filePath) {
   try {
     const res = await api('open-finder', {
@@ -2746,16 +3330,22 @@ async function openInFinder(filePath) {
 function switchView(view) {
   state.currentView = view;
   updateNavTabs();
+
+  // Hide all content views first
+  const allViews = ['costs-view', 'session-detail', 'search-results', 'folder-view', 'sessions-overview', 'claude-md-view'];
+  allViews.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+  });
+
   if (view === 'costs') {
     showCosts();
+  } else if (view === 'claude-md') {
+    showClaudeMd();
   } else {
     // Deselect current session and show sessions overview
     state.selectedSession = null;
     document.querySelectorAll('.session-item').forEach(el => el.classList.remove('selected'));
-    document.getElementById('costs-view').classList.add('hidden');
-    document.getElementById('session-detail').classList.add('hidden');
-    document.getElementById('search-results').classList.add('hidden');
-    document.getElementById('folder-view').classList.add('hidden');
     document.getElementById('sessions-overview').classList.remove('hidden');
     renderSessionsOverview();
   }
@@ -2947,11 +3537,198 @@ function customConfirm({ icon, title, message, confirmText, confirmClass }) {
   });
 }
 
-function showToast(msg) {
+function showToast(msg, duration) {
   const toast = document.getElementById('toast');
   toast.textContent = msg;
+  // Style warning messages differently
+  if (msg.startsWith('⚠')) {
+    toast.style.color = 'var(--orange)';
+    toast.style.borderColor = 'var(--orange-dim, rgba(255,165,0,0.3))';
+  } else {
+    toast.style.color = '';
+    toast.style.borderColor = '';
+  }
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2000);
+  const ms = duration || (msg.startsWith('⚠') ? 4000 : 2000);
+  setTimeout(() => toast.classList.remove('show'), ms);
+}
+
+// ─── CLAUDE.md Viewer/Editor ───
+let _claudeMdOriginal = '';
+let _claudeMdMode = 'preview'; // 'preview' or 'edit'
+
+function renderMdToHtml(md) {
+  if (!md) return '';
+  let html = esc(md);
+  // Code blocks
+  html = html.replace(/\\\`\\\`\\\`([\\s\\S]*?)\\\`\\\`\\\`/g, '<pre><code>$1</code></pre>');
+  // Inline code
+  html = html.replace(/\\\`([^\\\`]+)\\\`/g, '<code>$1</code>');
+  // Bold
+  html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
+  // Headings
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Horizontal rules
+  html = html.replace(/^---$/gm, '<hr>');
+  // Blockquotes
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Unordered lists
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\\/li>\\n?)+/g, function(m) { return '<ul>' + m + '</ul>'; });
+  // Links
+  html = html.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, function(m, label, url) {
+    if (/^https?:\\/\\//i.test(url)) return '<a href="' + url + '" target="_blank">' + label + '</a>';
+    return '[' + label + '](' + url + ')';
+  });
+  // Paragraphs (double newlines)
+  html = html.replace(/\\n\\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+  html = html.replace(/<p><(h[1-3]|pre|ul|ol|blockquote|hr)/g, '<$1');
+  html = html.replace(/<\\/(h[1-3]|pre|ul|ol|blockquote)><\\/p>/g, '</$1>');
+  html = html.replace(/<hr><\\/p>/g, '<hr>');
+  html = html.replace(/<p><\\/p>/g, '');
+  return html;
+}
+
+async function showClaudeMd() {
+  const container = document.getElementById('claude-md-view');
+  container.classList.remove('hidden');
+  container.innerHTML = '<div style="text-align:center;padding:60px;color:var(--text-muted)">Loading…</div>';
+
+  try {
+    const resp = await fetch('/api/claude-md');
+    const data = await resp.json();
+
+    if (data.error && !data.exists) {
+      // File does not exist — show empty state with create option
+      container.innerHTML = '<div class="claude-md-container">'
+        + '<div class="claude-md-header">'
+        + '<div><div class="claude-md-title"><span class="icon">📄</span> CLAUDE.md</div>'
+        + '<div class="claude-md-path">' + esc(data.path || '~/.claude/CLAUDE.md') + '</div></div>'
+        + '</div>'
+        + '<div class="claude-md-empty">'
+        + '<div class="icon">📝</div>'
+        + '<div class="title">No global CLAUDE.md found</div>'
+        + '<div class="desc">Create a global CLAUDE.md to set custom instructions that apply to all your Claude Code sessions.</div>'
+        + '<button class="btn" onclick="createClaudeMd()" style="margin-top:8px">Create CLAUDE.md</button>'
+        + '</div></div>';
+      return;
+    }
+
+    _claudeMdOriginal = data.content || '';
+    _claudeMdMode = 'preview';
+    renderClaudeMdView(container, data.content || '', data.path);
+  } catch (err) {
+    container.innerHTML = '<div style="text-align:center;padding:60px;color:var(--red)">Failed to load: ' + esc(err.message) + '</div>';
+  }
+}
+
+function renderClaudeMdView(container, content, filePath) {
+  let html = '<div class="claude-md-container">';
+  html += '<div class="claude-md-header">';
+  html += '<div><div class="claude-md-title"><span class="icon">📄</span> CLAUDE.md</div>';
+  html += '<div class="claude-md-path">' + esc(filePath || '~/.claude/CLAUDE.md') + '</div></div>';
+  html += '<div class="claude-md-actions">';
+  html += '<button class="btn" onclick="reloadClaudeMd()" title="Reload from disk">↻ Reload</button>';
+  html += '</div>';
+  html += '</div>';
+
+  // Tab bar
+  html += '<div class="claude-md-tab-bar">';
+  html += '<button class="claude-md-tab' + (_claudeMdMode === 'preview' ? ' active' : '') + '" onclick="switchClaudeMdTab(\\'preview\\')">Preview</button>';
+  html += '<button class="claude-md-tab' + (_claudeMdMode === 'edit' ? ' active' : '') + '" onclick="switchClaudeMdTab(\\'edit\\')">Edit</button>';
+  html += '</div>';
+
+  if (_claudeMdMode === 'edit') {
+    html += '<textarea class="claude-md-editor" id="claude-md-editor" oninput="onClaudeMdInput()">' + esc(content) + '</textarea>';
+    const modified = content !== _claudeMdOriginal;
+    html += '<div class="claude-md-save-bar">';
+    html += '<span class="status' + (modified ? ' modified' : '') + '">' + (modified ? '● Modified' : 'No changes') + '</span>';
+    html += '<button class="btn" onclick="saveClaudeMd()" ' + (modified ? '' : 'disabled') + '>Save</button>';
+    html += '</div>';
+  } else {
+    if (!content.trim()) {
+      html += '<div class="claude-md-empty">';
+      html += '<div class="icon">📝</div>';
+      html += '<div class="title">CLAUDE.md is empty</div>';
+      html += '<div class="desc">Switch to the Edit tab to add your custom instructions.</div>';
+      html += '</div>';
+    } else {
+      html += '<div class="claude-md-preview">' + renderMdToHtml(content) + '</div>';
+    }
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function switchClaudeMdTab(mode) {
+  _claudeMdMode = mode;
+  const container = document.getElementById('claude-md-view');
+  // Preserve current editor content when switching tabs (don't lose unsaved edits)
+  const editor = document.getElementById('claude-md-editor');
+  const currentContent = editor ? editor.value : _claudeMdOriginal;
+  renderClaudeMdView(container, currentContent, '~/.claude/CLAUDE.md');
+}
+
+function onClaudeMdInput() {
+  const editor = document.getElementById('claude-md-editor');
+  if (!editor) return;
+  const modified = editor.value !== _claudeMdOriginal;
+  const statusEl = document.querySelector('.claude-md-save-bar .status');
+  const saveBtn = document.querySelector('.claude-md-save-bar .btn');
+  if (statusEl) {
+    statusEl.textContent = modified ? '● Modified' : 'No changes';
+    statusEl.className = 'status' + (modified ? ' modified' : '');
+  }
+  if (saveBtn) saveBtn.disabled = !modified;
+}
+
+async function saveClaudeMd() {
+  const editor = document.getElementById('claude-md-editor');
+  if (!editor) return;
+  const content = editor.value;
+  const saveBtn = document.querySelector('.claude-md-save-bar .btn');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
+  try {
+    const resp = await fetch('/api/claude-md', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    _claudeMdOriginal = content;
+    showToast('CLAUDE.md saved');
+    onClaudeMdInput(); // refresh modified status
+  } catch (err) {
+    showToast('Save failed: ' + err.message);
+  } finally {
+    if (saveBtn) saveBtn.textContent = 'Save';
+  }
+}
+
+async function createClaudeMd() {
+  try {
+    const resp = await fetch('/api/claude-md', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: '# CLAUDE.md\\n\\nCustom instructions for Claude Code.\\n' }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    showToast('CLAUDE.md created');
+    showClaudeMd();
+  } catch (err) {
+    showToast('Create failed: ' + err.message);
+  }
+}
+
+async function reloadClaudeMd() {
+  showClaudeMd();
 }
 
 // ─── Boot ───

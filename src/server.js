@@ -474,6 +474,90 @@ end tell`;
       }
     }
 
+    // POST /api/send-prompt - Resume session with a prompt in a new Terminal tab
+    if (pathname === '/api/send-prompt' && req.method === 'POST') {
+      const body = await parseBody(req);
+      if (!body.sessionId) return sendJSON(res, { error: 'Missing sessionId' }, 400);
+      if (!body.prompt || !body.prompt.trim()) return sendJSON(res, { error: 'Missing prompt' }, 400);
+      if (body.sessionId.length < 8) return sendJSON(res, { error: 'Session ID too short' }, 400);
+      if (!/^[0-9a-f-]+$/i.test(body.sessionId)) return sendJSON(res, { error: 'Invalid session ID format' }, 400);
+
+      // Find session to get its cwd
+      const { projects } = await getCachedData();
+      let sessionCwd = null;
+      for (const project of projects) {
+        for (const session of project.sessions) {
+          if (session.id === body.sessionId || session.id.startsWith(body.sessionId)) {
+            sessionCwd = session.cwd || session.projectPath;
+            break;
+          }
+        }
+        if (sessionCwd) break;
+      }
+
+      try {
+        // Escape the prompt for shell: write to a temp file to avoid shell injection
+        const promptFile = join(tmpdir(), `ccdash-prompt-${Date.now()}.txt`);
+        writeFileSync(promptFile, body.prompt.trim());
+        const resumeCmd = `cat '${promptFile}' | claude --resume ${body.sessionId}`;
+
+        if (IS_MACOS) {
+          const tmpSh = join(tmpdir(), `ccdash-prompt-${Date.now()}.sh`);
+          const safeCwd = sessionCwd ? sessionCwd.replace(/'/g, "'\\''") : '';
+          const cdCmd = safeCwd ? `cd '${safeCwd}'\n` : '';
+          writeFileSync(tmpSh, `#!/bin/bash\n${cdCmd}${resumeCmd}\nrm -f '${promptFile}'\n`, { mode: 0o700 });
+          execSync(`open -a Terminal.app "${tmpSh}"`);
+          setTimeout(() => { try { unlinkSync(tmpSh); } catch {} }, 5000);
+        } else {
+          const cdCmd = sessionCwd ? `cd '${sessionCwd.replace(/'/g, "'\\''")}' && ` : '';
+          const fullCmd = `${cdCmd}${resumeCmd}; rm -f '${promptFile}'`;
+          try {
+            execSync(`which xterm && xterm -e "${fullCmd}" &`, { stdio: 'ignore' });
+          } catch {
+            // Clean up prompt file on failure
+            try { unlinkSync(promptFile); } catch {}
+            return sendJSON(res, { error: 'No supported terminal emulator found.' }, 400);
+          }
+        }
+        return sendJSON(res, { ok: true });
+      } catch (err) {
+        return sendJSON(res, { error: 'Send prompt failed: ' + err.message }, 500);
+      }
+    }
+
+    // GET /api/claude-md - Read ~/.claude/CLAUDE.md
+    if (pathname === '/api/claude-md' && req.method === 'GET') {
+      const claudeMdPath = join(CLAUDE_DIR, 'CLAUDE.md');
+      try {
+        const content = await fsp.readFile(claudeMdPath, 'utf-8');
+        return sendJSON(res, { content, path: claudeMdPath, exists: true });
+      } catch (err) {
+        if (err.code === 'ENOENT') {
+          return sendJSON(res, { error: 'File not found', path: claudeMdPath, exists: false });
+        }
+        return sendJSON(res, { error: 'Read failed: ' + err.message }, 500);
+      }
+    }
+
+    // POST /api/claude-md - Write to ~/.claude/CLAUDE.md
+    if (pathname === '/api/claude-md' && req.method === 'POST') {
+      const body = await parseBody(req);
+      if (typeof body.content !== 'string') return sendJSON(res, { error: 'Missing content' }, 400);
+      const claudeMdPath = join(CLAUDE_DIR, 'CLAUDE.md');
+
+      try {
+        // Ensure ~/.claude/ directory exists
+        await fsp.mkdir(CLAUDE_DIR, { recursive: true });
+        // Atomic write: write to temp file then rename
+        const tmpPath = claudeMdPath + '.tmp.' + Date.now();
+        await fsp.writeFile(tmpPath, body.content, 'utf-8');
+        await fsp.rename(tmpPath, claudeMdPath);
+        return sendJSON(res, { ok: true, path: claudeMdPath });
+      } catch (err) {
+        return sendJSON(res, { error: 'Write failed: ' + err.message }, 500);
+      }
+    }
+
     // POST /api/refresh - Force refresh cache
     if (pathname === '/api/refresh' && req.method === 'POST') {
       await getCachedData(true);
@@ -601,6 +685,85 @@ end tell`;
         return sendJSON(res, items);
       } catch (err) {
         return sendJSON(res, { error: 'Cannot read directory: ' + err.message }, 500);
+      }
+    }
+
+    // GET /api/file-content?path=<file> - Read file content for preview
+    if (pathname === '/api/file-content' && req.method === 'GET') {
+      const filePath = url.searchParams.get('path');
+      if (!filePath) return sendJSON(res, { error: 'Missing path parameter' }, 400);
+
+      const { projects } = await getCachedData();
+      const allowedRoots = getAllowedRoots(projects);
+      if (!isPathAllowed(filePath, allowedRoots)) {
+        return sendJSON(res, { error: 'Access denied: path not within any known project' }, 403);
+      }
+
+      try {
+        const fileStat = await fsp.stat(filePath);
+
+        // Reject directories
+        if (fileStat.isDirectory()) {
+          return sendJSON(res, { error: 'Path is a directory' }, 400);
+        }
+
+        // Size limit: 1MB
+        const MAX_SIZE = 1024 * 1024;
+        if (fileStat.size > MAX_SIZE) {
+          return sendJSON(res, {
+            name: filePath.split('/').pop(),
+            path: filePath,
+            size: fileStat.size,
+            binary: false,
+            truncated: true,
+            tooLarge: true,
+            content: '',
+            error: 'File too large to preview (' + (fileStat.size / 1024 / 1024).toFixed(1) + ' MB)',
+          });
+        }
+
+        // Read raw bytes to detect binary
+        const buf = await fsp.readFile(filePath);
+
+        // Check for binary: look for null bytes in first 8KB
+        const checkLen = Math.min(buf.length, 8192);
+        let isBinary = false;
+        for (let i = 0; i < checkLen; i++) {
+          if (buf[i] === 0) { isBinary = true; break; }
+        }
+
+        if (isBinary) {
+          return sendJSON(res, {
+            name: filePath.split('/').pop(),
+            path: filePath,
+            size: fileStat.size,
+            binary: true,
+            content: '',
+          });
+        }
+
+        let content = buf.toString('utf-8');
+        const MAX_LINES = 500;
+        const lines = content.split('\n');
+        const truncated = lines.length > MAX_LINES;
+        if (truncated) {
+          content = lines.slice(0, MAX_LINES).join('\n');
+        }
+
+        return sendJSON(res, {
+          name: filePath.split('/').pop(),
+          path: filePath,
+          size: fileStat.size,
+          binary: false,
+          truncated,
+          totalLines: lines.length,
+          content,
+        });
+      } catch (err) {
+        if (err.code === 'ENOENT') {
+          return sendJSON(res, { error: 'File not found' }, 404);
+        }
+        return sendJSON(res, { error: 'Read failed: ' + err.message }, 500);
       }
     }
 
