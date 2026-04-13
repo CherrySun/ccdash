@@ -89,7 +89,7 @@ Aggregated cost analysis with visualizations.
 - F3.1: Period selector: Today / Week / Month / All
 - F3.2: Summary stat cards: total cost, total tokens, input cost, output cost, cache cost
 - F3.3: Daily cost trend — bar chart
-- F3.4: Cost by project — pie chart with percentage breakdown
+- F3.4: Cost by project — pie chart with percentage breakdown, **clickable** (legend items + table rows navigate to project folder view)
 - F3.5: Cost by model — breakdown table
 - F3.6: Top sessions by cost — sortable table with per-session breakdown
 
@@ -119,7 +119,7 @@ Full-text search across all session content and metadata.
 
 ### F6 — File Tree Browser (Web)
 
-Browse project directories with file preview.
+Browse project directories with file preview and session summary.
 
 **Capabilities:**
 - F6.1: Triggered by clicking project header in sidebar
@@ -133,6 +133,8 @@ Browse project directories with file preview.
 - F6.9: Large file handling: 1MB size limit, 500-line truncation
 - F6.10: Language detection for syntax class labeling
 - F6.11: Open in Finder button (macOS only)
+- F6.12: **Session strip** — horizontal scrollable row of compact session cards at top of folder view, showing all sessions for this project
+- F6.13: Session strip cards show: status dot, title, time ago, turns, cost; click navigates to session detail
 
 ### F7 — CLAUDE.md Editor (Web)
 
@@ -833,6 +835,29 @@ T5.42 [E] File tree — truncated file
   Action: Click a file > 500 lines
   Expect: Shows first 500 lines with "truncated" indicator
 
+T5.42a [P] File tree — session strip shown
+  Action: Click project header in sidebar (project has 3 sessions)
+  Expect: Folder view top shows horizontal strip with 3 compact session cards, scrollable
+
+T5.42b [P] File tree — session strip card click
+  Action: Click a card in the session strip
+  Expect: Navigates to session detail view for that session
+
+T5.42c [P] File tree — session strip card content
+  Expect: Each strip card shows status dot, title (truncated to 40 chars), time ago, turns count, cost
+
+T5.42d [E] File tree — session strip with many sessions
+  Scenario: Project has 20+ sessions
+  Expect: Strip scrolls horizontally, no overflow, scrollbar visible
+
+T5.42e [E] File tree — session strip with zero sessions
+  Scenario: Project folder exists but has no sessions (e.g. navigated via cost table with unmatched path)
+  Expect: No session strip rendered, file tree shown normally
+
+T5.42f [P] File tree — session strip active status
+  Scenario: One session in project is currently active
+  Expect: That card's status dot is green, others are gray
+
 T5.43 [P] Cost dashboard — period switch
   Action: Click different period buttons
   Expect: Stats update for selected period
@@ -842,6 +867,18 @@ T5.44 [P] Cost dashboard — bar chart
 
 T5.45 [P] Cost dashboard — pie chart
   Expect: SVG pie chart with project cost percentages
+
+T5.45a [P] Cost dashboard — click project in pie chart legend
+  Action: Click a project name in the pie chart legend
+  Expect: Navigates to project folder view, sidebar expands matching project
+
+T5.45b [P] Cost dashboard — click project in table
+  Action: Click a project row in "Cost by Project" table
+  Expect: Same as T5.45a — folder view with session strip and file tree
+
+T5.45c [E] Cost dashboard — click project with no matching folder
+  Scenario: perProject key differs from state.projects[].path (e.g. hash vs path)
+  Expect: Folder view shown (may fail to load tree), sidebar best-effort match via title attribute
 
 T5.46 [R] Active status polling
   Action: Start a Claude session externally

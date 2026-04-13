@@ -905,6 +905,12 @@ a:hover { text-decoration: underline; }
   align-items: center;
   gap: 10px;
   font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background var(--transition);
+}
+.pie-legend-item[onclick]:hover {
+  background: var(--bg-hover);
 }
 .pie-color {
   width: 12px;
@@ -1626,6 +1632,84 @@ a:hover { text-decoration: underline; }
   .folder-tree-pane { flex: none; max-height: 40vh; }
 }
 
+/* ─── Project Sessions Strip (folder view top) ─── */
+.project-sessions-strip {
+  margin-bottom: 16px;
+}
+.project-sessions-strip .strip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.project-sessions-strip .strip-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.strip-cards {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+.strip-cards::-webkit-scrollbar { height: 4px; }
+.strip-cards::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.strip-card {
+  flex: 0 0 220px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+  min-width: 0;
+}
+.strip-card:hover {
+  border-color: var(--accent-dim);
+  background: var(--bg-hover);
+}
+.strip-card .sc-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.strip-card .sc-status {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.strip-card .sc-status.active { background: var(--green); opacity: 1; }
+.strip-card .sc-status.recent { background: var(--blue); opacity: 0.7; }
+.strip-card .sc-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.strip-card .sc-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.strip-card .sc-meta .sc-cost { color: var(--green); font-weight: 600; }
+
 /* ─── Rename Inline ─── */
 .rename-display {
   display: inline-flex;
@@ -2192,6 +2276,27 @@ function toggleProjectAndShow(el, folderPath) {
   showProjectFolder(folderPath);
 }
 
+function navigateToProject(folderPath) {
+  // Switch to sessions view, expand the project in sidebar, show folder view
+  state.currentView = 'sessions';
+  updateNavTabs();
+
+  // Expand the matching project in sidebar
+  const shortPath = folderPath.replace(/^\\/Users\\/[^/]+/, '~');
+  const headers = document.querySelectorAll('.project-header');
+  for (const h of headers) {
+    const pathEl = h.querySelector('.path');
+    if (pathEl && (pathEl.textContent === shortPath || pathEl.getAttribute('title') === folderPath)) {
+      if (h.classList.contains('collapsed')) {
+        toggleProject(h);
+      }
+      break;
+    }
+  }
+
+  showProjectFolder(folderPath);
+}
+
 // ─── Active Status ───
 function renderActiveStatus() {
   const el = document.getElementById('active-status');
@@ -2626,13 +2731,15 @@ async function showCosts() {
     html += renderPieChart(projectEntries.map(([name, data]) => ({
       label: name.replace(/^\\/Users\\/[^/]+/, '~'),
       value: data.cost,
+      onclick: 'navigateToProject(\\'' + esc(name).replace(/'/g, "\\\\'") + '\\')',
     })));
 
     html += '<table class="cost-table">';
     html += '<tr><th>Project</th><th class="right">Cost</th><th class="right">Sessions</th><th class="right">Tokens</th></tr>';
     for (const [name, data] of projectEntries) {
       const shortName = name.replace(/^\\/Users\\/[^/]+/, '~');
-      html += '<tr onclick="void 0">';
+      const escapedName = esc(name).replace(/'/g, "\\\\'");
+      html += '<tr onclick="navigateToProject(\\'' + escapedName + '\\')" style="cursor:pointer" title="Click to view project">';
       html += '<td>' + esc(shortName) + '</td>';
       html += '<td class="right cost-val">' + formatCost(data.cost) + '</td>';
       html += '<td class="right mono">' + data.sessions + '</td>';
@@ -3107,10 +3214,36 @@ async function showProjectFolder(folderPath) {
   folderView.classList.remove('hidden');
 
   const shortPath = folderPath.replace(/^\\/Users\\/[^/]+/, '~');
+
+  // Build session strip for this project
+  let stripHtml = '';
+  const project = state.projects.find(p => p.path === folderPath);
+  if (project && project.sessions.length > 0) {
+    stripHtml += '<div class="project-sessions-strip">';
+    stripHtml += '<div class="strip-header">Sessions <span class="strip-count">' + project.sessions.length + '</span></div>';
+    stripHtml += '<div class="strip-cards">';
+    for (const s of project.sessions) {
+      const displayTitle = s.rename || s.firstUserMessage || s.lastPrompt || '(empty session)';
+      stripHtml += '<div class="strip-card" onclick="showSession(\\'' + s.id + '\\')">';
+      stripHtml += '<div class="sc-top">';
+      stripHtml += '<span class="sc-status ' + liveStatus(s) + '"></span>';
+      stripHtml += '<span class="sc-title" title="' + esc(displayTitle) + '">' + esc(truncate(displayTitle, 40)) + '</span>';
+      stripHtml += '</div>';
+      stripHtml += '<div class="sc-meta">';
+      stripHtml += '<span>' + timeAgo(s.lastActiveTime) + '</span>';
+      stripHtml += '<span>' + s.totalTurns + ' turns</span>';
+      stripHtml += '<span class="sc-cost">' + formatCost(s.cost?.total || 0) + '</span>';
+      stripHtml += '</div>';
+      stripHtml += '</div>';
+    }
+    stripHtml += '</div></div>';
+  }
+
   folderView.innerHTML = '<div class="folder-view-header">'
     + '<span class="view-title" style="margin-bottom:0">📁 ' + esc(shortPath) + '</span>'
     + '<button class="btn folder-view-open" onclick="openInFinder(\\'' + esc(folderPath).replace(/'/g, "\\\\'") + '\\')">Open in Finder</button>'
     + '</div>'
+    + stripHtml
     + '<div class="folder-layout">'
     + '<div class="folder-tree-pane"><div class="tree-container" id="tree-root"><div class="loading">Loading…</div></div></div>'
     + '<div class="folder-preview-pane"><div class="file-preview-card" id="file-preview">'
@@ -3417,7 +3550,8 @@ function renderPieChart(data) {
   let legend = '<div class="pie-legend">';
   data.forEach((d, i) => {
     const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
-    legend += '<div class="pie-legend-item">';
+    const clickAttr = d.onclick ? ' onclick="' + d.onclick + '" style="cursor:pointer" title="Click to view project"' : '';
+    legend += '<div class="pie-legend-item"' + clickAttr + '>';
     legend += '<div class="pie-color" style="background:' + colors[i % colors.length] + '"></div>';
     legend += '<span style="flex:1">' + esc(truncate(d.label, 30)) + '</span>';
     legend += '<span class="pie-legend-cost">' + formatCost(d.value) + ' <span class="text-muted">(' + pct + '%)</span></span>';
