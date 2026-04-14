@@ -447,11 +447,9 @@ end tell`;
         // Claude Code runs in raw mode (-icanon), so writing to /dev/ttyXXX
         // only displays text on screen — it does NOT feed stdin.
         // TIOCSTI is blocked on macOS. keystroke goes to frontmost app (unreliable).
-        // Solution: use clipboard + Terminal's Edit>Paste menu.
+        // Solution: use clipboard + Terminal's Edit>Paste menu, then keystroke return.
         // Terminal.app's Paste writes clipboard content to pty master -> slave stdin,
-        // which works even in raw mode.
-        // We include \n in the clipboard so Paste sends text+enter in one shot,
-        // avoiding unreliable keystroke return.
+        // which works even in raw mode. A separate keystroke return submits the prompt.
 
         // Step 1: Save current clipboard, set new content (text only, no newline)
         const { execSync: execS } = await import('node:child_process');

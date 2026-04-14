@@ -1,6 +1,6 @@
 # ccdash — Product Specification & Verification Plan
 
-> Version: 1.1.0 | Last Updated: 2026-04-13
+> Version: 1.1.0 | Last Updated: 2026-04-14
 
 ---
 
@@ -69,12 +69,12 @@ Full view of a single session with conversation, stats, and management actions.
 **Capabilities:**
 - F2.1: Header with status badge, title (click-to-rename), short ID, action buttons
 - F2.2: Session info card: project, started, last active, duration, model, turns, tools used
-- F2.3: Token usage & cost card: input/output/cache-read/cache-create tokens with costs
-- F2.4: Total cost highlight
+- F2.3: Token usage & cost card: total tokens (with cost subtitle) shown first, then input/output/cache-read/cache-create tokens with costs
+- F2.4: ~~Total cost highlight~~ (merged into Total Tokens card as subtitle)
 - F2.5: Tool usage breakdown with counts per tool
 - F2.6: Notes textarea — auto-saves on change
 - F2.7: Tags — add via input field (Enter), remove via ✕ on badge, color-coded
-- F2.8: Send Prompt card — textarea with Cmd+Enter shortcut, opens claude --resume with piped prompt
+- F2.8: Send Prompt card — textarea with Cmd+Enter shortcut; if session is active, sends text directly via clipboard paste; otherwise opens claude --resume with piped prompt
 - F2.9: Conversation view — full message history with markdown rendering
 - F2.10: Each message shows role (user/assistant), content, tool calls, token usage
 - F2.11: Action buttons: Resume / Focus / Kill (context-sensitive based on active status)
@@ -87,9 +87,9 @@ Aggregated cost analysis with visualizations.
 
 **Capabilities:**
 - F3.1: Period selector: Today / Week / Month / All
-- F3.2: Summary stat cards: total cost, total tokens, input cost, output cost, cache cost
-- F3.3: Daily cost trend — bar chart
-- F3.4: Cost by project — pie chart with percentage breakdown, **clickable** (legend items + table rows navigate to project folder view)
+- F3.2: Summary stat cards: total cost, input cost, output cost, total tokens, I/O tokens, cache tokens (3 money + 3 token cards)
+- F3.3: Daily cost trend — bar chart (percentage-based positioning for responsive width)
+- F3.4: Cost by project — pie chart with legend showing cost percentage, session count, and token count per project; **clickable** legend items navigate to project folder view
 - F3.5: Cost by model — breakdown table
 - F3.6: Top sessions by cost — sortable table with per-session breakdown
 
@@ -157,6 +157,7 @@ Terminal integration for controlling Claude Code sessions.
 **Capabilities:**
 - F8.1: Resume — opens `claude --resume <id>` in new Terminal tab (macOS) or xterm (Linux)
 - F8.2: Resume with prompt — pipes prompt text to claude --resume via temp file
+- F8.2a: Send to active — pastes text into active session via clipboard + keystroke return (macOS Terminal)
 - F8.3: Focus — brings Terminal tab to front using AppleScript TTY matching (macOS)
 - F8.4: Kill — sends SIGTERM to process group, then SIGKILL after 2s if needed
 - F8.5: Post-action polling — refreshAfterAction polls up to 6 times at 1.5s intervals
@@ -377,15 +378,15 @@ T2.10 [P] Token formatting
   Expect: "500", "1.5K", "2.5M"
 
 T2.11 [P] Period filtering — today
-  Setup: Sessions from today, yesterday, last week
-  Expect: Only today's sessions included in aggregation
+  Setup: Sessions from today, yesterday, last week; some started yesterday but active today
+  Expect: Sessions whose lastActiveTime (or startTime if no lastActiveTime) is today are included
 
 T2.12 [P] Period filtering — week
   Setup: Sessions across 10 days
   Expect: Only sessions from last 7 days included
 
-T2.13 [E] Session with no startTime
-  Setup: Session where startTime is null
+T2.13 [E] Session with no startTime or lastActiveTime
+  Setup: Session where both startTime and lastActiveTime are null
   Expect: Excluded from period filtering (no date to compare)
 
 T2.14 [P] Aggregate per-project
@@ -582,6 +583,22 @@ T4.36 [P] POST /api/send-prompt
 T4.37 [N] POST /api/send-prompt (empty prompt)
   Body: {sessionId:"valid-id", prompt:"   "}
   Expect: 400 "Missing prompt"
+
+T4.37a [P] POST /api/send-to-active (macOS)
+  Body: {pid: <valid-active-pid>, text: "hello"}
+  Expect: {ok:true}, text pasted into Terminal via clipboard + keystroke return
+
+T4.37b [N] POST /api/send-to-active (non-Claude PID)
+  Body: {pid: 1, text: "hello"}
+  Expect: 403 "PID is not a recognized Claude process"
+
+T4.37c [N] POST /api/send-to-active (empty text)
+  Body: {pid: <valid-pid>, text: "   "}
+  Expect: 400 "Missing text"
+
+T4.37d [E] POST /api/send-to-active — clipboard restoration
+  Action: Set clipboard content, send text to active session
+  Expect: Original clipboard content restored after paste + submit
 
 T4.38 [P] POST /api/kill
   Body: {pid: <valid-claude-pid>}

@@ -44,13 +44,12 @@ Built with native Node.js (>=18) — no Express, no React, no build step. Just r
 │  [Resume] [Focus] [Kill] [Delete]                                    │
 │                                                                      │
 │  ┌─ Session Info ──────────────┐  ┌─ Token Usage & Cost ──────────┐  │
-│  │ Project  ~/projects/my-api  │  │ Input     12,450 tk    $0.037 │  │
-│  │ Model    claude-sonnet-4    │  │ Output     3,820 tk    $0.057 │  │
-│  │ Turns    12 (6u / 6a)       │  │ Cache R  145,200 tk    $0.044 │  │
-│  │ Started  Apr 8, 2:30 PM     │  │ Cache W   28,100 tk    $0.105 │  │
-│  │ Tools    Read, Edit, Bash   │  │ ─────────────────────────     │  │
-│  └─────────────────────────────┘  │ Total              $0.243     │  │
-│                                   └───────────────────────────────┘  │
+│  │ Project  ~/projects/my-api  │  │ Total    189,470 tk    $0.243 │  │
+│  │ Model    claude-sonnet-4    │  │ Input     12,450 tk    $0.037 │  │
+│  │ Turns    12 (6u / 6a)       │  │ Output     3,820 tk    $0.057 │  │
+│  │ Started  Apr 8, 2:30 PM     │  │ Cache R  145,200 tk    $0.044 │  │
+│  │ Tools    Read, Edit, Bash   │  │ Cache W   28,100 tk    $0.105 │  │
+│  └─────────────────────────────┘  └───────────────────────────────┘  │
 │  ┌─ Tool Usage ────────────────────────────────────────────────────┐ │
 │  │ Read   ████████████████  16                                     │ │
 │  │ Edit   ██████████  10                                           │ │
@@ -75,19 +74,19 @@ Built with native Node.js (>=18) — no Express, no React, no build step. Just r
 │                                                                      │
 │  Period: [Today] [Week] [Month] [All]                                │
 │                                                                      │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐            │
-│  │ $12.47 │ │ 2.1M   │ │ $2.83  │ │ $6.15  │ │ $3.49  │            │
-│  │  Total │ │ Tokens │ │ Input  │ │ Output │ │ Cache  │            │
-│  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘            │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ │
+│  │ $12.47 │ │ $2.83  │ │ $6.15  │ │ 2.1M   │ │ 1.8M   │ │ 320K   │ │
+│  │  Total │ │ Input$ │ │ Output$│ │ Tokens │ │I/O Tok │ │ Cache  │ │
+│  └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ └────────┘ │
 │                                                                      │
 │  Daily Cost Trend                    Cost by Project                  │
-│  ┌────────────────────────┐         ┌──────────────────┐            │
-│  │     ██                 │         │    ╭──────╮       │            │
-│  │     ██  ██             │         │   ╱ my-api ╲      │            │
-│  │  ██ ██  ██ ██          │         │  │  42.3%   │     │            │
-│  │  ██ ██  ██ ██ ██       │         │   ╲ docs  ╱      │            │
-│  │  ██ ██  ██ ██ ██ ██    │         │    ╰──────╯       │            │
-│  │  M  T   W  T  F  S    │         └──────────────────┘            │
+│  ┌────────────────────────┐         ┌──────────────────────────────┐ │
+│  │     ██                 │         │    ╭──────╮  my-api   $5.28  │ │
+│  │     ██  ██             │         │   ╱ 42.3% ╲  3 sess · 1.2M  │ │
+│  │  ██ ██  ██ ██          │         │  │        │  docs    $3.15  │ │
+│  │  ██ ██  ██ ██ ██       │         │   ╲ 25.2% ╱  2 sess · 800K  │ │
+│  │  ██ ██  ██ ██ ██ ██    │         │    ╰──────╯                  │ │
+│  │  M  T   W  T  F  S    │         └──────────────────────────────┘ │
 │  └────────────────────────┘                                          │
 │                                                                      │
 │  Top Sessions by Cost                                                │
@@ -161,11 +160,11 @@ ccdash help                # Show help
 ### Web Dashboard
 - **Session Overview** — Browse all sessions grouped by project or tag, with status indicators, token counts, and cost estimates
 - **Session Detail** — Full conversation viewer with markdown rendering, tool usage breakdown, token/cost analysis
-- **Cost Dashboard** — Aggregated cost reports by period (today/week/month/all), by project, by day, with bar and pie charts
+- **Cost Dashboard** — Aggregated cost reports by period (today/week/month/all), by project, by day, with bar and pie charts; summary shows 3 cost + 3 token cards
 - **Active Process Monitor** — Real-time view of running Claude Code processes with focus/kill controls
 - **Full-Text Search** — Search across message content, folder paths, tags, titles, notes, and descriptions
 - **Session Management** — Resume sessions in Terminal, rename/alias sessions, add notes & tags, delete sessions
-- **Prompt Input** — Send a prompt to resume a session directly from the dashboard, opens in a new Terminal tab
+- **Prompt Input** — Send a prompt to resume or active session directly from the dashboard, opens in a new Terminal tab
 - **Project File Browser** — Browse project directories with inline file preview (syntax-highlighted, line numbers)
 - **CLAUDE.md Editor** — View and edit `~/.claude/CLAUDE.md` with live preview and markdown rendering
 
@@ -216,6 +215,7 @@ SPEC.md                   ← Product specification & verification test plan
 | POST | `/api/refresh` | Force cache refresh |
 | POST | `/api/resume` | Resume session in Terminal |
 | POST | `/api/send-prompt` | Resume session with a prompt in Terminal |
+| POST | `/api/send-to-active` | Send text to active session via clipboard paste |
 | POST | `/api/focus` | Focus Terminal tab (macOS) |
 | POST | `/api/kill` | Kill active session process |
 | POST | `/api/delete-session` | Delete session JSONL file |
