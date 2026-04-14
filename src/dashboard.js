@@ -847,6 +847,7 @@ a:hover { text-decoration: underline; }
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 4px;
+  font-family: var(--font-mono);
 }
 
 /* ─── Conversation Filter ─── */
@@ -921,8 +922,6 @@ a:hover { text-decoration: underline; }
 .msg.filtered-out {
   display: none;
 }
-  font-family: var(--font-mono);
-}
 
 /* ─── Cost View ─── */
 .chart-container {
@@ -976,7 +975,7 @@ a:hover { text-decoration: underline; }
 .pie-container {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 24px;
   margin: 16px 0;
   padding: 8px;
 }
@@ -985,15 +984,18 @@ a:hover { text-decoration: underline; }
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 .pie-legend-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-size: 12px;
   padding: 4px 6px;
   border-radius: 6px;
   transition: background var(--transition);
+  min-width: 0;
 }
 .pie-legend-item[onclick]:hover {
   background: var(--bg-hover);
@@ -1009,6 +1011,13 @@ a:hover { text-decoration: underline; }
   font-weight: 600;
   color: var(--text-secondary);
   font-size: 11px;
+  white-space: nowrap;
+}
+.pie-legend-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 .period-tabs {
   display: flex;
@@ -2687,15 +2696,13 @@ async function showSession(id) {
   // Token & Cost Card
   html += '<div class="card">';
   html += '<div class="card-header"><span class="card-header-icon">◎</span> Token Usage & Cost</div>';
+  const totalTokens = (s.totalInputTokens || 0) + (s.totalOutputTokens || 0) + (s.totalCacheReadTokens || 0) + (s.totalCacheCreationTokens || 0);
   html += '<div class="stat-grid">';
+  html += statCard(formatTokens(totalTokens), 'Total Tokens', formatCost(s.cost?.total || 0));
   html += statCard(formatTokens(s.totalInputTokens || 0), 'Input Tokens', formatCost(s.cost?.input || 0));
   html += statCard(formatTokens(s.totalOutputTokens || 0), 'Output Tokens', formatCost(s.cost?.output || 0));
   html += statCard(formatTokens(s.totalCacheReadTokens || 0), 'Cache Read', formatCost(s.cost?.cacheRead || 0));
   html += statCard(formatTokens(s.totalCacheCreationTokens || 0), 'Cache Create', formatCost(s.cost?.cacheCreation || 0));
-  html += '</div>';
-  html += '<div class="total-cost-card">';
-  html += '<div class="total-cost-label">Total Cost</div>';
-  html += '<div class="total-cost-value">' + formatCost(s.cost?.total || 0) + '</div>';
   html += '</div>';
   html += '</div>';
 
@@ -2812,10 +2819,10 @@ async function showCosts() {
   // Summary stats
   html += '<div class="stat-grid">';
   html += statCard(formatCost(stats.totals?.totalCost || 0), 'Total Cost');
-  html += statCard(formatTokens((stats.totals?.inputTokens || 0) + (stats.totals?.outputTokens || 0)), 'Total Tokens');
   html += statCard(formatCost(stats.totals?.inputCost || 0), 'Input Cost');
   html += statCard(formatCost(stats.totals?.outputCost || 0), 'Output Cost');
-  html += statCard(formatCost(stats.totals?.cacheReadCost || 0), 'Cache Read');
+  html += statCard(formatTokens((stats.totals?.inputTokens || 0) + (stats.totals?.outputTokens || 0) + (stats.totals?.cacheReadTokens || 0)), 'Total Tokens');
+  html += statCard(formatTokens((stats.totals?.inputTokens || 0) + (stats.totals?.outputTokens || 0)), 'I/O Tokens');
   html += statCard(formatTokens(stats.totals?.cacheReadTokens || 0), 'Cache Tokens');
   html += '</div>';
 
@@ -2836,22 +2843,10 @@ async function showCosts() {
     html += renderPieChart(projectEntries.map(([name, data]) => ({
       label: name.replace(/^\\/Users\\/[^/]+/, '~'),
       value: data.cost,
+      sessions: data.sessions,
+      tokens: data.tokens,
       onclick: 'navigateToProject(\\'' + esc(name).replace(/'/g, "\\\\'") + '\\')',
     })));
-
-    html += '<table class="cost-table">';
-    html += '<tr><th>Project</th><th class="right">Cost</th><th class="right">Sessions</th><th class="right">Tokens</th></tr>';
-    for (const [name, data] of projectEntries) {
-      const shortName = name.replace(/^\\/Users\\/[^/]+/, '~');
-      const escapedName = esc(name).replace(/'/g, "\\\\'");
-      html += '<tr onclick="navigateToProject(\\'' + escapedName + '\\')" style="cursor:pointer" title="Click to view project">';
-      html += '<td>' + esc(shortName) + '</td>';
-      html += '<td class="right cost-val">' + formatCost(data.cost) + '</td>';
-      html += '<td class="right mono">' + data.sessions + '</td>';
-      html += '<td class="right mono">' + formatTokens(data.tokens) + '</td>';
-      html += '</tr>';
-    }
-    html += '</table>';
     html += '</div>';
   }
 
@@ -3689,18 +3684,20 @@ function renderBarChart(data) {
   if (data.length === 0) return '';
   const maxVal = Math.max(...data.map(d => d.value), 0.001);
   const chartH = 150;
-  const barW = Math.max(14, Math.min(42, Math.floor(600 / data.length) - 6));
-  const totalW = data.length * (barW + 6);
 
-  let html = '<div class="chart-container" style="height:' + (chartH + 50) + 'px;min-width:' + totalW + 'px">';
+  // Use percentage-based positioning so bars spread across the full container width
+  const gap = 100 / (data.length + 1); // percentage gap between bars
+  const barW = Math.max(14, Math.min(42, Math.floor(600 / data.length) - 6));
+
+  let html = '<div class="chart-container" style="height:' + (chartH + 50) + 'px">';
 
   data.forEach((d, i) => {
     const h = Math.max(3, (d.value / maxVal) * chartH);
-    const x = i * (barW + 6) + 20;
-    html += '<div class="chart-bar" style="left:' + x + 'px;width:' + barW + 'px;height:' + h + 'px">';
+    const xPct = gap * (i + 1); // percentage from left
+    html += '<div class="chart-bar" style="left:calc(' + xPct.toFixed(2) + '% - ' + (barW / 2) + 'px);width:' + barW + 'px;height:' + h + 'px">';
     html += '<div class="chart-value">' + formatCost(d.value) + '</div>';
     html += '</div>';
-    html += '<div class="chart-label" style="left:' + (x + 2) + 'px">' + d.label + '</div>';
+    html += '<div class="chart-label" style="left:calc(' + xPct.toFixed(2) + '% - ' + (barW / 2 - 2) + 'px)">' + d.label + '</div>';
   });
 
   html += '</div>';
@@ -3713,7 +3710,7 @@ function renderPieChart(data) {
   if (total === 0) return '<div class="text-muted">No cost data</div>';
 
   const colors = ['#6cb6ff', '#56d364', '#e3b341', '#f47067', '#d2a8ff', '#f0883e', '#76e3ea', '#f778ba'];
-  const size = 150;
+  const size = 200;
   const cx = size / 2, cy = size / 2, r = size / 2 - 5;
   let startAngle = -Math.PI / 2;
 
@@ -3747,8 +3744,14 @@ function renderPieChart(data) {
     const clickAttr = d.onclick ? ' onclick="' + d.onclick + '" style="cursor:pointer" title="Click to view project"' : '';
     legend += '<div class="pie-legend-item"' + clickAttr + '>';
     legend += '<div class="pie-color" style="background:' + colors[i % colors.length] + '"></div>';
-    legend += '<span style="flex:1">' + esc(truncate(d.label, 30)) + '</span>';
-    legend += '<span class="pie-legend-cost">' + formatCost(d.value) + ' <span class="text-muted">(' + pct + '%)</span></span>';
+    legend += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(truncate(d.label, 60)) + '</span>';
+    legend += '<span class="pie-legend-cost" style="white-space:nowrap">' + formatCost(d.value) + ' (' + pct + '%)</span>';
+    if (d.sessions != null || d.tokens != null) {
+      legend += '<span class="pie-legend-meta">';
+      if (d.sessions != null) legend += d.sessions + ' sess';
+      if (d.tokens != null) legend += ' · ' + formatTokens(d.tokens);
+      legend += '</span>';
+    }
     legend += '</div>';
   });
   legend += '</div>';

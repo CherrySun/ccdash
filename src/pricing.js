@@ -205,9 +205,12 @@ export function getCostsByPeriod(sessions, period = 'today') {
       startDate = new Date(0);
   }
 
-  const filtered = sessions.filter(s =>
-    s.startTime && new Date(s.startTime) >= startDate
-  );
+  const filtered = sessions.filter(s => {
+    // A session is relevant to a period if it was active during that period
+    // Use lastActiveTime if available, fall back to startTime
+    const sessionTime = s.lastActiveTime || s.startTime;
+    return sessionTime && new Date(sessionTime) >= startDate;
+  });
 
   return aggregateCosts(filtered);
 }
