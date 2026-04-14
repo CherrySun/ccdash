@@ -453,13 +453,14 @@ end tell`;
         // We include \n in the clipboard so Paste sends text+enter in one shot,
         // avoiding unreliable keystroke return.
 
-        // Step 1: Save current clipboard, set new content (with trailing newline)
+        // Step 1: Save current clipboard, set new content (text only, no newline)
         const { execSync: execS } = await import('node:child_process');
         let origClip = '';
         try { origClip = execS('pbpaste 2>/dev/null', { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }); } catch {}
-        execS('pbcopy', { input: body.text.trim() + '\n', encoding: 'utf-8' });
+        execS('pbcopy', { input: body.text.trim(), encoding: 'utf-8' });
 
-        // Step 2: Focus tab, paste via menu — all in one AppleScript
+        // Step 2: Focus tab, paste via menu, then keystroke return to send
+        // Terminal is frontmost after paste, so keystroke return hits the right window
         const script = `tell application "Terminal"
   activate
   set targetTTY to "${psOutput}"
@@ -488,10 +489,19 @@ end repeat
 
 delay 0.3
 
--- Paste via Edit menu (writes text+newline to pty master, works in raw mode)
+-- Paste text via Edit menu
 tell application "System Events"
   tell process "Terminal"
     click menu item "Paste" of menu "Edit" of menu bar 1
+  end tell
+end tell
+
+delay 0.2
+
+-- Send return keystroke to submit (Terminal is already frontmost)
+tell application "System Events"
+  tell process "Terminal"
+    keystroke return
   end tell
 end tell
 return "sent"`;
