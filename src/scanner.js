@@ -81,6 +81,7 @@ export async function parseSession(filePath, sessionId) {
     userMessages: 0,
     assistantMessages: 0,
     totalTurns: 0,
+    toolResults: 0,
     tools: new Set(),
     toolUseCounts: {},
     cwd: null,
@@ -106,8 +107,16 @@ export async function parseSession(filePath, sessionId) {
 
     switch (type) {
       case 'user': {
-        session.userMessages++;
-        session.totalTurns++;
+        const content = obj.message?.content;
+        const isToolResult = Array.isArray(content);
+
+        if (isToolResult) {
+          session.toolResults++;
+        } else {
+          session.userMessages++;
+          session.totalTurns++;
+        }
+
         const ts = obj.timestamp;
         if (ts) {
           const time = new Date(ts).getTime();
@@ -123,15 +132,16 @@ export async function parseSession(filePath, sessionId) {
         if (obj.gitBranch) session.gitBranch = obj.gitBranch;
         if (obj.entrypoint) session.entrypoint = obj.entrypoint;
 
-        // Extract user message text
-        const content = obj.message?.content;
+        // Extract user message text (skip tool results)
         if (typeof content === 'string') {
-          if (!session.firstUserMessage) session.firstUserMessage = content.slice(0, 200);
+          const isAuto = !!(obj.isCompactSummary || obj.isVisibleInTranscriptOnly);
+          if (!session.firstUserMessage && !isAuto) session.firstUserMessage = content.slice(0, 200);
           session.messages.push({
             role: 'user',
             content: content,
             timestamp: ts,
             uuid: obj.uuid,
+            isAuto,
           });
         }
         break;

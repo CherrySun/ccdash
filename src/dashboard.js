@@ -578,6 +578,7 @@ a:hover { text-decoration: underline; }
 .detail-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 .btn {
   padding: 7px 16px;
@@ -593,6 +594,9 @@ a:hover { text-decoration: underline; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  height: 34px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 .btn:hover {
   border-color: var(--accent);
@@ -651,6 +655,7 @@ a:hover { text-decoration: underline; }
   border-radius: 50%;
   animation: btn-spin 0.6s linear infinite;
   margin-left: 4px;
+  flex-shrink: 0;
 }
 @keyframes btn-spin {
   to { transform: rotate(360deg); }
@@ -799,6 +804,10 @@ a:hover { text-decoration: underline; }
 }
 .msg-role.user { color: var(--green); }
 .msg-role.assistant { color: var(--accent); }
+.msg-role.auto { color: var(--text-muted); font-style: italic; }
+.msg.auto { opacity: 0.6; border-left-color: var(--border); }
+.msg.auto .msg-content { font-size: 12px; max-height: 80px; overflow: hidden; position: relative; }
+.msg.auto .msg-content::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 30px; background: linear-gradient(transparent, var(--bg-card)); }
 .msg-content {
   white-space: pre-wrap;
   word-break: break-word;
@@ -838,6 +847,80 @@ a:hover { text-decoration: underline; }
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 4px;
+}
+
+/* ─── Conversation Filter ─── */
+.conv-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.conv-filter-btn {
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.conv-filter-btn:hover {
+  border-color: var(--accent-dim);
+  color: var(--text-primary);
+}
+.conv-filter-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: #fff;
+}
+.conv-filter-btn.active-user {
+  background: rgba(86,211,100,0.15);
+  border-color: var(--green);
+  color: var(--green);
+}
+.conv-filter-btn.active-assistant {
+  background: rgba(108,182,255,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.conv-filter-btn.active-auto {
+  background: rgba(160,160,160,0.15);
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+}
+.conv-search-input {
+  flex: 1;
+  min-width: 140px;
+  max-width: 260px;
+  padding: 5px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.conv-search-input:focus {
+  border-color: var(--accent);
+}
+.conv-search-input::placeholder {
+  color: var(--text-muted);
+}
+.conv-filter-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.msg.filtered-out {
+  display: none;
+}
   font-family: var(--font-mono);
 }
 
@@ -849,8 +932,11 @@ a:hover { text-decoration: underline; }
   background: var(--bg-primary);
   border-radius: var(--radius);
   padding: 20px 16px 30px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--border);
+  width: 100%;
+  box-sizing: border-box;
 }
 .chart-bar {
   position: absolute;
@@ -2583,7 +2669,8 @@ async function showSession(id) {
   html += infoRow('Last Active', s.lastActiveTime ? new Date(s.lastActiveTime).toLocaleString() : 'N/A');
   html += infoRow('Duration', s.startTime && s.lastActiveTime ? formatDuration(s.lastActiveTime - s.startTime) : 'N/A');
   html += infoRow('Model', s.model || 'unknown');
-  html += infoRow('Turns', s.totalTurns + '  (' + s.userMessages + ' user, ' + s.assistantMessages + ' assistant)');
+  html += infoRow('Turns', s.totalTurns + '  (' + s.userMessages + ' you, ' + s.assistantMessages + ' claude)');
+  if (s.toolResults) html += infoRow('Tool Calls', s.toolResults.toLocaleString());
   html += '</div>';
 
   if (s.tools && s.tools.length > 0) {
@@ -2632,19 +2719,37 @@ async function showSession(id) {
   html += '<textarea class="prompt-input" id="prompt-' + s.id + '" placeholder="Type a prompt to send to this session…" onkeydown="if(event.key===\\'Enter\\'&&(event.metaKey||event.ctrlKey)){event.preventDefault();sendPrompt(\\'' + s.id + '\\');}"></textarea>';
   html += '<button class="prompt-send-btn" id="prompt-send-' + s.id + '" onclick="sendPrompt(\\'' + s.id + '\\')">Send</button>';
   html += '</div>';
-  html += '<div class="prompt-hint">⌘+Enter to send. Opens in a new Terminal tab via <code>claude --resume</code>.</div>';
+  if (activeProc) {
+    html += '<div class="prompt-hint">⌘+Enter to send. Will type prompt directly into the active Terminal.</div>';
+  } else {
+    html += '<div class="prompt-hint">⌘+Enter to send. Will resume session in a new Terminal tab with your prompt.</div>';
+  }
   html += '</div>';
 
   // Conversation Card
   if (s.messages && s.messages.length > 0) {
     html += '<div class="card">';
     html += '<div class="card-header"><span class="card-header-icon">◬</span> Conversation <span style="margin-left:auto;font-weight:400;letter-spacing:0">' + s.messages.length + ' messages</span></div>';
+    html += '<div class="conv-filter-bar">';
+    html += '<button class="conv-filter-btn active" data-filter="all" onclick="setConvFilter(this,\\'all\\')">All</button>';
+    html += '<button class="conv-filter-btn" data-filter="user" onclick="setConvFilter(this,\\'user\\')">👤 You</button>';
+    html += '<button class="conv-filter-btn" data-filter="assistant" onclick="setConvFilter(this,\\'assistant\\')">🤖 Claude</button>';
+    html += '<button class="conv-filter-btn" data-filter="auto" onclick="setConvFilter(this,\\'auto\\')">⚙ System</button>';
+    html += '<input class="conv-search-input" type="text" placeholder="Search messages…" oninput="filterConversation()">';
+    html += '<span class="conv-filter-count" id="conv-filter-count">' + s.messages.length + ' / ' + s.messages.length + '</span>';
+    html += '</div>';
     html += '<div class="conversation">';
 
     for (const msg of s.messages) {
-      html += '<div class="msg ' + msg.role + '">';
+      const isAuto = msg.isAuto;
+      const roleClass = isAuto ? 'auto' : msg.role;
+      html += '<div class="msg ' + msg.role + (isAuto ? ' auto' : '') + '" data-role="' + msg.role + '" data-auto="' + (isAuto ? 'true' : 'false') + '">';
       html += '<div class="msg-header">';
-      html += '<span class="msg-role ' + msg.role + '">' + (msg.role === 'user' ? 'You' : 'Claude') + '</span>';
+      if (isAuto) {
+        html += '<span class="msg-role auto">⚙ System</span>';
+      } else {
+        html += '<span class="msg-role ' + msg.role + '">' + (msg.role === 'user' ? 'You' : 'Claude') + '</span>';
+      }
       if (msg.timestamp) html += '<span>' + new Date(msg.timestamp).toLocaleTimeString() + '</span>';
       if (msg.model && msg.model !== '<synthetic>') html += '<span style="font-family:var(--font-mono);font-size:10px">' + msg.model + '</span>';
       html += '</div>';
@@ -2919,6 +3024,65 @@ function copyResume(id) {
   navigator.clipboard.writeText('claude --resume ' + id).then(() => showToast('Copied: claude --resume ' + id.slice(0,8) + '…'));
 }
 
+// ─── Conversation Filter ───
+let convFilterRole = 'all';
+
+function setConvFilter(btn, role) {
+  convFilterRole = role;
+  const bar = btn.closest('.conv-filter-bar');
+  bar.querySelectorAll('.conv-filter-btn').forEach(b => {
+    b.classList.remove('active', 'active-user', 'active-assistant', 'active-auto');
+  });
+  if (role === 'user') btn.classList.add('active-user');
+  else if (role === 'assistant') btn.classList.add('active-assistant');
+  else if (role === 'auto') btn.classList.add('active-auto');
+  else btn.classList.add('active');
+  filterConversation();
+}
+
+function filterConversation() {
+  const searchInput = document.querySelector('.conv-search-input');
+  const keyword = (searchInput ? searchInput.value : '').toLowerCase().trim();
+  const msgs = document.querySelectorAll('.conversation .msg');
+  let shown = 0;
+  const total = msgs.length;
+
+  msgs.forEach(m => {
+    const role = m.getAttribute('data-role');
+    const isAuto = m.getAttribute('data-auto') === 'true';
+    let visible = true;
+
+    // Role filter
+    if (convFilterRole === 'user') {
+      // "You" = user messages that are NOT auto-generated
+      if (role !== 'user' || isAuto) visible = false;
+    } else if (convFilterRole === 'assistant') {
+      if (role !== 'assistant') visible = false;
+    } else if (convFilterRole === 'auto') {
+      if (!isAuto) visible = false;
+    }
+    // 'all' shows everything
+
+    // Keyword filter
+    if (visible && keyword) {
+      const text = (m.textContent || '').toLowerCase();
+      if (!text.includes(keyword)) {
+        visible = false;
+      }
+    }
+
+    if (visible) {
+      m.classList.remove('filtered-out');
+      shown++;
+    } else {
+      m.classList.add('filtered-out');
+    }
+  });
+
+  const countEl = document.getElementById('conv-filter-count');
+  if (countEl) countEl.textContent = shown + ' / ' + total;
+}
+
 async function focusSession(pid) {
   try {
     const res = await api('focus', {
@@ -3169,26 +3333,56 @@ async function sendPrompt(sessionId) {
   const prompt = (textarea ? textarea.value : '').trim();
   if (!prompt) { showToast('Please enter a prompt'); return; }
 
+  const activeProc = state.activeProcesses.find(p => p.isRunning && p.sessionId === sessionId);
+
   btn.disabled = true;
-  btn.textContent = 'Sending…';
+  btn.textContent = activeProc ? 'Sending…' : 'Resuming…';
+
   try {
-    const res = await api('send-prompt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, prompt }),
-    });
-    if (res.ok) {
-      showToast('Prompt sent — session opened in Terminal');
-      textarea.value = '';
-      const became = await refreshAfterAction(sessionId, { expectActive: true });
-      if (!became) {
-        showToast('⚠ Session may not have started — not detected as active');
+    if (activeProc) {
+      // Active session: type prompt directly into Terminal
+      const res = await api('send-to-active', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pid: activeProc.pid, text: prompt }),
+      });
+      if (res.ok) {
+        showToast('Prompt sent to active session');
+        textarea.value = '';
+      } else {
+        showToast('⚠ Send failed: ' + (res.error || 'unknown'));
       }
     } else {
-      showToast('⚠ Send failed: ' + (res.error || 'unknown'));
+      // Inactive session: resume with prompt
+      const res = await api('send-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, prompt }),
+      });
+      if (res.ok) {
+        showToast('Resuming session with prompt in Terminal…');
+        textarea.value = '';
+        const became = await refreshAfterAction(sessionId, { expectActive: true });
+        if (!became) {
+          showToast('⚠ Resume may have failed — session not detected as active');
+        }
+      } else {
+        const errMsg = res.error || 'unknown';
+        showToast('⚠ Resume failed: ' + errMsg);
+        if (confirm('Resume failed: ' + errMsg + '\\n\\nRetry?')) {
+          btn.disabled = false;
+          btn.textContent = 'Send';
+          return sendPrompt(sessionId);
+        }
+      }
     }
   } catch (err) {
-    showToast('Send error: ' + err.message);
+    showToast('⚠ Error: ' + err.message);
+    if (confirm('Send error: ' + err.message + '\\n\\nRetry?')) {
+      btn.disabled = false;
+      btn.textContent = 'Send';
+      return sendPrompt(sessionId);
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = 'Send';

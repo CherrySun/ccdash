@@ -180,6 +180,7 @@ async function handleAPI(req, res, pathname, serverPort) {
             userMessages: s.userMessages,
             assistantMessages: s.assistantMessages,
             totalTurns: s.totalTurns,
+            toolResults: s.toolResults,
             tools: s.tools,
             toolUseCounts: s.toolUseCounts,
             status: realStatus,
@@ -417,6 +418,94 @@ end tell`;
         return sendJSON(res, { ok: true, tty: psOutput });
       } catch (err) {
         return sendJSON(res, { error: 'Focus failed: ' + err.message }, 500);
+      }
+    }
+
+    // POST /api/send-to-active - Type text into an active session's Terminal tab
+    if (pathname === '/api/send-to-active' && req.method === 'POST') {
+      if (!IS_MACOS) return sendJSON(res, { error: 'Only supported on macOS' }, 400);
+
+      const body = await parseBody(req);
+      const pid = sanitizePid(body.pid);
+      if (!pid) return sendJSON(res, { error: 'Invalid PID' }, 400);
+      if (!body.text || !body.text.trim()) return sendJSON(res, { error: 'Missing text' }, 400);
+
+      const { activeProcesses } = await getCachedData();
+      if (!isClaudeProcess(pid, activeProcesses)) {
+        return sendJSON(res, { error: 'PID is not a recognized Claude process' }, 403);
+      }
+
+      try {
+        const psOutput = execSync(`ps -o tty= -p ${pid} 2>/dev/null`, { encoding: 'utf-8' }).trim();
+        if (!psOutput || psOutput === '??') {
+          return sendJSON(res, { error: 'Cannot determine tty for PID ' + pid }, 400);
+        }
+        if (!/^[a-z0-9/]+$/i.test(psOutput)) {
+          return sendJSON(res, { error: 'Invalid tty format' }, 400);
+        }
+
+        // Claude Code runs in raw mode (-icanon), so writing to /dev/ttyXXX
+        // only displays text on screen — it does NOT feed stdin.
+        // TIOCSTI is blocked on macOS. keystroke goes to frontmost app (unreliable).
+        // Solution: use clipboard + Terminal's Edit>Paste menu.
+        // Terminal.app's Paste writes clipboard content to pty master -> slave stdin,
+        // which works even in raw mode.
+        // We include \n in the clipboard so Paste sends text+enter in one shot,
+        // avoiding unreliable keystroke return.
+
+        // Step 1: Save current clipboard, set new content (with trailing newline)
+        const { execSync: execS } = await import('node:child_process');
+        let origClip = '';
+        try { origClip = execS('pbpaste 2>/dev/null', { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }); } catch {}
+        execS('pbcopy', { input: body.text.trim() + '\n', encoding: 'utf-8' });
+
+        // Step 2: Focus tab, paste via menu — all in one AppleScript
+        const script = `tell application "Terminal"
+  activate
+  set targetTTY to "${psOutput}"
+  set found to false
+  repeat with w in windows
+    repeat with t in tabs of w
+      if tty of t contains targetTTY then
+        set selected tab of w to t
+        set index of w to 1
+        set found to true
+        exit repeat
+      end if
+    end repeat
+    if found then exit repeat
+  end repeat
+  if not found then return "not_found"
+end tell
+
+-- Wait for Terminal to be frontmost
+repeat 30 times
+  tell application "System Events"
+    if frontmost of process "Terminal" then exit repeat
+  end tell
+  delay 0.1
+end repeat
+
+delay 0.3
+
+-- Paste via Edit menu (writes text+newline to pty master, works in raw mode)
+tell application "System Events"
+  tell process "Terminal"
+    click menu item "Paste" of menu "Edit" of menu bar 1
+  end tell
+end tell
+return "sent"`;
+        const result = runAppleScript(script);
+
+        // Step 3: Restore original clipboard
+        try { execS('pbcopy', { input: origClip, encoding: 'utf-8' }); } catch {}
+
+        if (result === 'not_found') {
+          return sendJSON(res, { error: 'Terminal tab not found for tty ' + psOutput }, 404);
+        }
+        return sendJSON(res, { ok: true });
+      } catch (err) {
+        return sendJSON(res, { error: 'Send failed: ' + err.message }, 500);
       }
     }
 

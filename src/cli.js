@@ -150,7 +150,8 @@ async function cmdShow(sessionId) {
   console.log(`${c.bold}Last Active:${c.reset} ${found.lastActiveTime ? new Date(found.lastActiveTime).toLocaleString() : 'unknown'}`);
   console.log(`${c.bold}Model:${c.reset}      ${found.model || 'unknown'}`);
   console.log(`${c.bold}Version:${c.reset}    ${found.version || 'unknown'}`);
-  console.log(`${c.bold}Turns:${c.reset}      ${found.totalTurns} (user: ${found.userMessages}, assistant: ${found.assistantMessages})`);
+  console.log(`${c.bold}Turns:${c.reset}      ${found.totalTurns} (you: ${found.userMessages}, claude: ${found.assistantMessages})`);
+  if (found.toolResults) console.log(`${c.bold}Tool Calls:${c.reset} ${found.toolResults}`);
   console.log(`${c.bold}Tools:${c.reset}      ${found.tools.join(', ') || 'none'}`);
 
   if (note.note) console.log(`${c.bold}Note:${c.reset}       ${note.note}`);
