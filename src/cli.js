@@ -18,7 +18,7 @@
 
 import { scanAllSessions, getActiveProcesses } from './scanner.js';
 import { calculateSessionCost, aggregateCosts, getCostsByPeriod, formatCost, formatTokens } from './pricing.js';
-import { loadNotes, getSessionNotes } from './notes.js';
+import { loadNotes, getSessionNotes, getClaudeAlias } from './notes.js';
 import { startServer } from './server.js';
 import { execSync, execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -186,7 +186,7 @@ async function cmdShow(sessionId) {
     }
   }
 
-  console.log(`\n${c.dim}Resume: claude --resume ${found.id}${c.reset}\n`);
+  console.log(`\n${c.dim}Resume: ${await getClaudeAlias()} --resume ${found.id}${c.reset}\n`);
 }
 
 async function cmdResume(sessionId) {
@@ -215,9 +215,10 @@ async function cmdResume(sessionId) {
   }
 
   const cwd = found.cwd || found.projectPath;
+  const claudeCmd = await getClaudeAlias();
   console.log(`${c.cyan}Resuming session ${found.id.slice(0, 8)}... in ${cwd}${c.reset}`);
 
-  const child = spawn('claude', ['--resume', found.id], {
+  const child = spawn(claudeCmd, ['--resume', found.id], {
     cwd,
     stdio: 'inherit',
     shell: true,

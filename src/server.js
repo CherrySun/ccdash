@@ -13,7 +13,7 @@ import { tmpdir, platform, homedir } from 'node:os';
 import { join, resolve, normalize } from 'node:path';
 import { scanAllSessions, getActiveProcesses } from './scanner.js';
 import { getCostsByPeriod, calculateSessionCost } from './pricing.js';
-import { loadNotes, setSessionNote, addSessionTag, removeSessionTag, getSessionNotes, getAllTags, setSessionRename } from './notes.js';
+import { loadNotes, setSessionNote, addSessionTag, removeSessionTag, getSessionNotes, getAllTags, setSessionRename, getClaudeAlias, setClaudeAlias } from './notes.js';
 import { getDashboardHTML } from './dashboard.js';
 
 const IS_MACOS = platform() === 'darwin';
@@ -544,17 +544,22 @@ return "sent"`;
           return sendJSON(res, { error: 'Invalid session ID format' }, 400);
         }
 
-        const resumeCmd = `claude --resume ${body.sessionId}`;
+        const claudeCmd = await getClaudeAlias();
+        const resumeCmd = `${claudeCmd} --resume ${body.sessionId}`;
 
         if (IS_MACOS) {
-          // Write a temp shell script and open in Terminal
-          const tmpSh = join(tmpdir(), `ccdash-resume-${Date.now()}.sh`);
-          // Escape single quotes in cwd for shell safety
-          const safeCwd = sessionCwd ? sessionCwd.replace(/'/g, "'\\''") : '';
-          const cdCmd = safeCwd ? `cd '${safeCwd}'\n` : '';
-          writeFileSync(tmpSh, `#!/bin/bash\n${cdCmd}${resumeCmd}\n`, { mode: 0o700 });
-          execSync(`open -a Terminal.app "${tmpSh}"`);
-          setTimeout(() => { try { unlinkSync(tmpSh); } catch {} }, 3000);
+          // Use AppleScript `do script` to run in a new Terminal window
+          // This behaves like typing in Terminal — aliases/functions from .zshrc are available
+          const cdCmd = sessionCwd ? `cd '${sessionCwd.replace(/'/g, "'\\''")}' && ` : '';
+          const fullCmd = `${cdCmd}${resumeCmd}`;
+          // Escape for AppleScript double-quoted string: backslashes then double-quotes
+          const asCmd = fullCmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+          runAppleScript(`
+tell application "Terminal"
+  activate
+  do script "${asCmd}"
+end tell
+`);
         } else {
           // On Linux, try common terminal emulators
           const cdCmd = sessionCwd ? `cd '${sessionCwd.replace(/'/g, "'\\''")}' && ` : '';
@@ -596,15 +601,19 @@ return "sent"`;
         // Escape the prompt for shell: write to a temp file to avoid shell injection
         const promptFile = join(tmpdir(), `ccdash-prompt-${Date.now()}.txt`);
         writeFileSync(promptFile, body.prompt.trim());
-        const resumeCmd = `cat '${promptFile}' | claude --resume ${body.sessionId}`;
+        const claudeCmd2 = await getClaudeAlias();
+        const resumeCmd = `cat '${promptFile}' | ${claudeCmd2} --resume ${body.sessionId}`;
 
         if (IS_MACOS) {
-          const tmpSh = join(tmpdir(), `ccdash-prompt-${Date.now()}.sh`);
-          const safeCwd = sessionCwd ? sessionCwd.replace(/'/g, "'\\''") : '';
-          const cdCmd = safeCwd ? `cd '${safeCwd}'\n` : '';
-          writeFileSync(tmpSh, `#!/bin/bash\n${cdCmd}${resumeCmd}\nrm -f '${promptFile}'\n`, { mode: 0o700 });
-          execSync(`open -a Terminal.app "${tmpSh}"`);
-          setTimeout(() => { try { unlinkSync(tmpSh); } catch {} }, 5000);
+          const cdCmd = sessionCwd ? `cd '${sessionCwd.replace(/'/g, "'\\''")}' && ` : '';
+          const fullCmd = `${cdCmd}${resumeCmd}; rm -f '${promptFile}'`;
+          const asCmd = fullCmd.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+          runAppleScript(`
+tell application "Terminal"
+  activate
+  do script "${asCmd}"
+end tell
+`);
         } else {
           const cdCmd = sessionCwd ? `cd '${sessionCwd.replace(/'/g, "'\\''")}' && ` : '';
           const fullCmd = `${cdCmd}${resumeCmd}; rm -f '${promptFile}'`;
@@ -715,6 +724,19 @@ return "sent"`;
       await setSessionRename(body.sessionId, body.rename || '');
       _cache = null;
       return sendJSON(res, { ok: true });
+    }
+
+    // GET /api/claude-alias - Get the configured Claude CLI alias
+    if (pathname === '/api/claude-alias' && req.method === 'GET') {
+      const alias = await getClaudeAlias();
+      return sendJSON(res, { alias });
+    }
+
+    // POST /api/claude-alias - Set the Claude CLI alias
+    if (pathname === '/api/claude-alias' && req.method === 'POST') {
+      const body = await parseBody(req);
+      await setClaudeAlias(body.alias || 'claude');
+      return sendJSON(res, { ok: true, alias: body.alias || 'claude' });
     }
 
     // POST /api/delete-session - Delete a session JSONL file from disk

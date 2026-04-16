@@ -150,3 +150,20 @@ export async function getSessionsByTag(tag) {
   }
   return results;
 }
+
+/**
+ * Get the Claude CLI alias (defaults to 'claude').
+ */
+export async function getClaudeAlias() {
+  const data = await loadNotes();
+  return data.claudeAlias || 'claude';
+}
+
+/**
+ * Set the Claude CLI alias.
+ */
+export async function setClaudeAlias(alias) {
+  const data = await loadNotes();
+  data.claudeAlias = (alias || 'claude').trim();
+  await saveNotes(data);
+}

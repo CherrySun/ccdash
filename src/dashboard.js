@@ -2122,6 +2122,7 @@ a:hover { text-decoration: underline; }
       <button class="nav-tab" data-view="claude-md" onclick="switchView('claude-md')">CLAUDE.md</button>
     </div>
     <button class="btn-refresh" onclick="refreshData()" title="Refresh data" id="refresh-btn">↻</button>
+    <button class="btn-refresh" onclick="showSettings()" title="Settings">⚙</button>
   </div>
 
   <div id="main">
@@ -2204,6 +2205,11 @@ async function api(path, opts) {
 
 // ─── Init ───
 async function init() {
+  // Load Claude CLI alias
+  try {
+    const aliasRes = await api('claude-alias');
+    window._claudeAlias = aliasRes.alias || 'claude';
+  } catch { window._claudeAlias = 'claude'; }
   await loadSessions();
   await loadActive();
   renderSessionsOverview();
@@ -2663,7 +2669,7 @@ async function showSession(id) {
   } else {
     html += '<button class="btn btn-orange" onclick="resumeSession(\\'' + s.id + '\\')">▶ Resume</button>';
   }
-  html += '<button class="btn" onclick="copyResume(\\'' + s.id + '\\')" title="Copy resume command">📋</button>';
+  html += '<button class="btn" onclick="copyResume(\\'' + s.id + '\\', \\'' + esc(s.cwd || s.projectPath || '').replace(/'/g, "\\\\'") + '\\')" title="Copy resume command">📋</button>';
   html += '<button class="btn btn-red" onclick="deleteSession(\\'' + s.id + '\\')" title="Delete session">🗑</button>';
 
   html += '</div>';
@@ -3015,8 +3021,33 @@ function setBtnLoading(btn, loading) {
   }
 }
 
-function copyResume(id) {
-  navigator.clipboard.writeText('claude --resume ' + id).then(() => showToast('Copied: claude --resume ' + id.slice(0,8) + '…'));
+function copyResume(id, cwd) {
+  const alias = window._claudeAlias || 'claude';
+  let cmd = alias + ' --resume ' + id;
+  if (cwd) cmd = 'cd ' + cwd + ' && ' + cmd;
+  navigator.clipboard.writeText(cmd).then(() => showToast('Copied: ' + cmd.slice(0, 60) + (cmd.length > 60 ? '…' : '')));
+}
+
+function showSettings() {
+  const alias = window._claudeAlias || 'claude';
+  const modal = document.getElementById('modal-root');
+  modal.innerHTML = '<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:999" onclick="if(event.target===this)this.parentElement.innerHTML=\\'\\'"><div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;padding:24px;min-width:360px;max-width:480px"><h3 style="margin:0 0 16px;color:var(--text-primary)">Settings</h3><label style="display:block;margin-bottom:8px;color:var(--text-secondary);font-size:13px">Claude CLI command</label><div style="display:flex;gap:8px"><input id="alias-input" type="text" value="' + esc(alias) + '" placeholder="claude" style="flex:1;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-family:monospace"><button class="btn" onclick="saveClaudeAlias()">Save</button></div><p style="margin:8px 0 0;color:var(--text-muted);font-size:12px">Custom alias for the Claude CLI binary (e.g. claude-dev, ~/bin/claude). Used in resume commands and clipboard copies.</p></div></div>';
+}
+
+async function saveClaudeAlias() {
+  const val = document.getElementById('alias-input').value.trim() || 'claude';
+  try {
+    await api('claude-alias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alias: val }),
+    });
+    window._claudeAlias = val;
+    document.getElementById('modal-root').innerHTML = '';
+    showToast('Claude alias set to: ' + val);
+  } catch (err) {
+    showToast('Failed to save: ' + err.message);
+  }
 }
 
 // ─── Conversation Filter ───
