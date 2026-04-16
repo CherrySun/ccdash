@@ -930,40 +930,65 @@ a:hover { text-decoration: underline; }
   margin: 16px 0;
   background: var(--bg-primary);
   border-radius: var(--radius);
-  padding: 20px 16px 30px;
+  padding: 28px 16px 36px;
   overflow-x: auto;
   overflow-y: hidden;
   border: 1px solid var(--border);
   width: 100%;
   box-sizing: border-box;
 }
+.chart-gridline {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  border-top: 1px dashed var(--border);
+  opacity: 0.5;
+  pointer-events: none;
+}
+.chart-gridline-label {
+  position: absolute;
+  right: 100%;
+  top: -6px;
+  margin-right: 4px;
+  font-size: 7px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  opacity: 0.6;
+}
 .chart-bar {
   position: absolute;
-  bottom: 30px;
-  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-dim) 100%);
-  border-radius: 4px 4px 0 0;
+  bottom: 36px;
+  background: linear-gradient(180deg, #79c0ff 0%, var(--accent) 40%, var(--accent-dim) 100%);
+  border-radius: 6px 6px 0 0;
   min-width: 14px;
-  transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
-  opacity: 0.85;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.8;
+  box-shadow: 0 -2px 8px rgba(108, 182, 255, 0.08);
 }
 .chart-bar:hover {
   opacity: 1;
-  filter: brightness(1.2);
-  box-shadow: 0 0 12px var(--accent-glow);
+  filter: brightness(1.15);
+  box-shadow: 0 -4px 20px rgba(108, 182, 255, 0.25), 0 0 8px rgba(108, 182, 255, 0.15);
+  transform: scaleX(1.08);
+}
+.chart-bar:hover .chart-value {
+  opacity: 1;
 }
 .chart-label {
   position: absolute;
-  bottom: 8px;
+  bottom: 12px;
   font-size: 9px;
   color: var(--text-muted);
-  transform: rotate(-45deg);
-  transform-origin: top left;
   white-space: nowrap;
   font-family: var(--font-mono);
+  text-align: center;
+  width: max-content;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .chart-value {
   position: absolute;
-  top: -18px;
+  top: -30px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 9px;
@@ -971,6 +996,15 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
   font-family: var(--font-mono);
   font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+  opacity: 0.55;
+  transition: opacity 0.2s;
+}
+.chart-subtitle {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 8px;
 }
 .pie-container {
   display: flex;
@@ -2837,7 +2871,7 @@ async function showCosts() {
   if (days.length > 0) {
     html += '<div class="card">';
     html += '<div class="card-header"><span class="card-header-icon">▥</span> Daily Cost Trend</div>';
-    html += renderBarChart(days.map(([d, v]) => ({ label: d.slice(5), value: v.cost })));
+    html += renderBarChart(days.map(([d, v]) => ({ label: d.slice(5), value: v.cost, subtitle: formatTokens((v.inputTokens || 0) + (v.outputTokens || 0)) })));
     html += '</div>';
   }
 
@@ -3716,19 +3750,24 @@ function renderBarChart(data) {
   const maxVal = Math.max(...data.map(d => d.value), 0.001);
   const chartH = 150;
 
-  // Use percentage-based positioning so bars spread across the full container width
-  const gap = 100 / (data.length + 1); // percentage gap between bars
+  const gap = 100 / (data.length + 1);
   const barW = Math.max(14, Math.min(42, Math.floor(600 / data.length) - 6));
 
-  let html = '<div class="chart-container" style="height:' + (chartH + 50) + 'px">';
+  let html = '<div class="chart-container" style="height:' + (chartH + 70) + 'px">';
+
+  // Gridlines (3 lines at 25%, 50%, 75%)
+  [0.25, 0.5, 0.75].forEach(pct => {
+    const y = 36 + chartH * pct;
+    html += '<div class="chart-gridline" style="bottom:' + y + 'px"><span class="chart-gridline-label">' + formatCost(maxVal * (1 - pct)) + '</span></div>';
+  });
 
   data.forEach((d, i) => {
     const h = Math.max(3, (d.value / maxVal) * chartH);
-    const xPct = gap * (i + 1); // percentage from left
+    const xPct = gap * (i + 1);
     html += '<div class="chart-bar" style="left:calc(' + xPct.toFixed(2) + '% - ' + (barW / 2) + 'px);width:' + barW + 'px;height:' + h + 'px">';
-    html += '<div class="chart-value">' + formatCost(d.value) + '</div>';
+    html += '<div class="chart-value">' + formatCost(d.value) + (d.subtitle ? '<br><span class="chart-subtitle">' + d.subtitle + '</span>' : '') + '</div>';
     html += '</div>';
-    html += '<div class="chart-label" style="left:calc(' + xPct.toFixed(2) + '% - ' + (barW / 2 - 2) + 'px)">' + d.label + '</div>';
+    html += '<div class="chart-label" style="left:calc(' + xPct.toFixed(2) + '% - ' + (barW / 2) + 'px);width:' + barW + 'px">' + d.label + '</div>';
   });
 
   html += '</div>';
