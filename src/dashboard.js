@@ -204,7 +204,7 @@ a:hover { text-decoration: underline; }
   color: var(--text-secondary);
   border-radius: 8px;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 18px;
   transition: all var(--transition);
 }
 .btn-refresh:hover {
@@ -553,14 +553,13 @@ a:hover { text-decoration: underline; }
   align-items: center;
   gap: 12px;
   margin-bottom: 24px;
-  flex-wrap: wrap;
 }
 .detail-title {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
   flex: 1;
-  min-width: 200px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -574,11 +573,13 @@ a:hover { text-decoration: underline; }
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   letter-spacing: 0.3px;
+  flex-shrink: 0;
 }
 .detail-actions {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-shrink: 0;
 }
 .btn {
   padding: 7px 16px;
@@ -597,6 +598,8 @@ a:hover { text-decoration: underline; }
   height: 34px;
   box-sizing: border-box;
   flex-shrink: 0;
+  overflow: hidden;
+  line-height: 1;
 }
 .btn:hover {
   border-color: var(--accent);
@@ -643,18 +646,19 @@ a:hover { text-decoration: underline; }
   color: #fff;
 }
 
-.btn.loading {
+.btn.btn-loading {
   pointer-events: none;
   opacity: 0.6;
+  position: relative;
+  overflow: hidden;
 }
-.btn.loading::after {
+.btn.btn-loading::after {
   content: '';
   width: 12px; height: 12px;
   border: 2px solid transparent;
   border-top-color: currentColor;
   border-radius: 50%;
   animation: btn-spin 0.6s linear infinite;
-  margin-left: 4px;
   flex-shrink: 0;
 }
 @keyframes btn-spin {
@@ -2871,7 +2875,7 @@ async function showCosts() {
   if (days.length > 0) {
     html += '<div class="card">';
     html += '<div class="card-header"><span class="card-header-icon">▥</span> Daily Cost Trend</div>';
-    html += renderBarChart(days.map(([d, v]) => ({ label: d.slice(5), value: v.cost, subtitle: formatTokens((v.inputTokens || 0) + (v.outputTokens || 0)) })));
+    html += renderBarChart(days.map(([d, v]) => ({ label: d.slice(5), value: v.cost, subtitle: formatTokens((v.inputTokens || 0) + (v.outputTokens || 0) + (v.cacheReadTokens || 0)) })));
     html += '</div>';
   }
 
@@ -3047,11 +3051,9 @@ async function refreshAfterAction(sessionId, { expectActive = null, maxAttempts 
 function setBtnLoading(btn, loading) {
   if (!btn) return;
   if (loading) {
-    btn.classList.add('loading');
-    btn.dataset.origText = btn.textContent;
+    btn.classList.add('btn-loading');
   } else {
-    btn.classList.remove('loading');
-    if (btn.dataset.origText) btn.textContent = btn.dataset.origText;
+    btn.classList.remove('btn-loading');
   }
 }
 
@@ -3230,37 +3232,55 @@ async function saveNote(sessionId, note) {
 async function addTag(sessionId, tag) {
   tag = tag.trim();
   if (!tag) return;
-  const content = document.getElementById('content');
-  const scrollPos = content ? content.scrollTop : 0;
   try {
-    await api('tags', {
+    const res = await api('tags', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, tag }),
     });
-    await loadSessions();
-    await showSession(sessionId);
-    if (content) requestAnimationFrame(() => { content.scrollTop = scrollPos; });
+    if (res.ok !== false) {
+      // Update local state
+      const s = findSession(sessionId);
+      if (s && !s.tags) s.tags = [];
+      if (s && !s.tags.includes(tag)) s.tags.push(tag);
+      // Re-render only the tags container
+      updateTagsUI(sessionId);
+      renderSidebar();
+    }
   } catch (err) {
     showToast('Add tag failed: ' + err.message);
   }
 }
 
 async function removeTag(sessionId, tag) {
-  const content = document.getElementById('content');
-  const scrollPos = content ? content.scrollTop : 0;
   try {
     await api('tags', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId, tag, action: 'remove' }),
     });
-    await loadSessions();
-    await showSession(sessionId);
-    if (content) requestAnimationFrame(() => { content.scrollTop = scrollPos; });
+    // Update local state
+    const s = findSession(sessionId);
+    if (s && s.tags) s.tags = s.tags.filter(t => t !== tag);
+    // Re-render only the tags container
+    updateTagsUI(sessionId);
+    renderSidebar();
   } catch (err) {
     showToast('Remove tag failed: ' + err.message);
   }
+}
+
+function updateTagsUI(sessionId) {
+  const container = document.getElementById('tags-' + sessionId);
+  if (!container) return;
+  const s = findSession(sessionId);
+  if (!s) return;
+  let html = '';
+  for (const tag of (s.tags || [])) {
+    html += tagBadgeHTML(tag, true, sessionId);
+  }
+  html += '<input class="tag-input-field" placeholder="+ add tag" onkeydown="if(event.key===\\'Enter\\'){addTag(\\'' + sessionId + '\\', this.value);this.value=\\'\\';}">';
+  container.innerHTML = html;
 }
 
 // ─── Rename Session (inline) ───

@@ -153,11 +153,12 @@ export function aggregateCosts(sessions) {
     if (session.startTime) {
       const day = new Date(session.startTime).toISOString().slice(0, 10);
       if (!perDay[day]) {
-        perDay[day] = { cost: 0, inputTokens: 0, outputTokens: 0 };
+        perDay[day] = { cost: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0 };
       }
       perDay[day].cost += sc.cost.total;
       perDay[day].inputTokens += sc.tokens.input;
       perDay[day].outputTokens += sc.tokens.output;
+      perDay[day].cacheReadTokens += sc.tokens.cacheRead;
     }
 
     // Per model
