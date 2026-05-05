@@ -1515,6 +1515,107 @@ a:hover { text-decoration: underline; }
 .quick-actions .qa-btn.qa-rename:hover { color: var(--purple); border-color: var(--purple); }
 .quick-actions .qa-btn.qa-delete:hover { color: var(--red); border-color: var(--red); }
 
+/* ─── Batch Select Mode ─── */
+.batch-select-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+}
+.batch-select-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.batch-select-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+  color: #fff;
+}
+.batch-select-all {
+  padding: 3px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+  margin-left: auto;
+}
+.batch-select-all:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.batch-checkbox {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid var(--border-light);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: transparent;
+  transition: all 0.15s;
+  z-index: 3;
+}
+.batch-checkbox:hover {
+  border-color: var(--accent);
+}
+.batch-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.overview-card.selectable {
+  position: relative;
+  padding-left: 36px;
+  cursor: pointer;
+}
+.overview-card.selected-card {
+  border-color: var(--accent);
+  background: rgba(108,182,255,0.06);
+}
+.batch-action-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  animation: slideUp 0.2s ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+.batch-action-bar .batch-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.batch-action-bar .btn { font-size: 12px; height: 32px; padding: 5px 14px; }
+
 /* ─── Folder Tree View ─── */
 #folder-view {
   padding-bottom: 32px;
@@ -2199,6 +2300,8 @@ let state = {
   costPeriod: 'all',
   groupBy: 'folder',
   filterTag: null,
+  selectMode: false,
+  selectedSessions: new Set(),
 };
 
 // ─── Tag Color Helper ───
@@ -2472,6 +2575,7 @@ function renderSessionsOverview() {
   html += '<button class="group-tab' + (state.groupBy === 'folder' ? ' active' : '') + '" onclick="setGroupBy(\\'folder\\')">📁 By Project</button>';
   html += '<button class="group-tab' + (state.groupBy === 'tag' ? ' active' : '') + '" onclick="setGroupBy(\\'tag\\')">🏷 By Tag</button>';
   html += '</div>';
+  html += '<button class="batch-select-btn' + (state.selectMode ? ' active' : '') + '" onclick="toggleSelectMode()">' + (state.selectMode ? '✕ Cancel' : '☐ Select') + '</button>';
   html += '</div>';
 
   if (state.groupBy === 'tag') {
@@ -2481,6 +2585,7 @@ function renderSessionsOverview() {
   }
 
   el.innerHTML = html;
+  renderBatchActionBar();
 }
 
 function setGroupBy(mode) {
@@ -2537,6 +2642,10 @@ function renderOverviewByFolder() {
     html += '<div class="overview-project-header">';
     html += '<span class="overview-project-path" title="' + esc(project.path) + '">' + esc(shortPath) + '</span>';
     html += '<span class="overview-project-count">' + sessions.length + ' sessions</span>';
+    if (state.selectMode) {
+      const allSelected = sessions.every(s => state.selectedSessions.has(s.id));
+      html += '<button class="batch-select-all" onclick="selectAllProject(\\'' + esc(project.path).replace(/'/g, "\\\\'") + '\\')">' + (allSelected ? '☑ Deselect All' : '☐ Select All') + '</button>';
+    }
     html += '</div>';
     html += '<div class="overview-cards">';
 
@@ -2598,6 +2707,11 @@ function renderOverviewByTag() {
     html += '<div class="overview-project-header">';
     html += '<span class="overview-project-path" style="color:' + tc.color + '">🏷 ' + esc(tag) + '</span>';
     html += '<span class="overview-project-count">' + sessions.length + ' sessions</span>';
+    if (state.selectMode) {
+      const groupIds = sessions.map(s => s.id);
+      const allSelected = groupIds.every(id => state.selectedSessions.has(id));
+      html += '<button class="batch-select-all" onclick="selectSessionGroup([' + groupIds.map(id => '\\'' + id + '\\'').join(',') + '])">' + (allSelected ? '☑ Deselect All' : '☐ Select All') + '</button>';
+    }
     html += '</div>';
     html += '<div class="overview-cards">';
     for (const s of sessions) {
@@ -2625,6 +2739,22 @@ function renderOverviewByTag() {
 
 function renderOverviewCard(s) {
   const displayTitle = s.rename || s.firstUserMessage || s.lastPrompt || '(empty session)';
+  if (state.selectMode) {
+    const checked = state.selectedSessions.has(s.id);
+    let html = '<div class="overview-card selectable' + (checked ? ' selected-card' : '') + '" onclick="toggleSelectSession(\\'' + s.id + '\\')">';
+    html += '<span class="batch-checkbox' + (checked ? ' checked' : '') + '">✓</span>';
+    html += '<div class="oc-top">';
+    html += '<span class="oc-status ' + liveStatus(s) + '" title="' + liveStatus(s) + '"></span>';
+    html += '<span class="oc-title" title="' + esc(displayTitle) + '">' + esc(truncate(displayTitle, 55)) + '</span>';
+    html += '</div>';
+    html += '<div class="oc-meta">';
+    html += '<span>' + timeAgo(s.lastActiveTime) + '</span>';
+    html += '<span>' + s.totalTurns + ' turns</span>';
+    html += '<span class="oc-cost">' + formatCost(s.cost?.total || 0) + '</span>';
+    html += '</div>';
+    html += '</div>';
+    return html;
+  }
   let html = '<div class="overview-card" onclick="showSession(\\'' + s.id + '\\')">';
   html += '<div class="oc-top">';
   html += '<span class="oc-status ' + liveStatus(s) + '" title="' + liveStatus(s) + '"></span>';
@@ -3281,6 +3411,117 @@ function updateTagsUI(sessionId) {
   }
   html += '<input class="tag-input-field" placeholder="+ add tag" onkeydown="if(event.key===\\'Enter\\'){addTag(\\'' + sessionId + '\\', this.value);this.value=\\'\\';}">';
   container.innerHTML = html;
+}
+
+// ─── Batch Select & Delete ───
+function toggleSelectMode() {
+  state.selectMode = !state.selectMode;
+  state.selectedSessions = new Set();
+  renderSessionsOverview();
+}
+
+function toggleSelectSession(sessionId) {
+  if (state.selectedSessions.has(sessionId)) {
+    state.selectedSessions.delete(sessionId);
+  } else {
+    state.selectedSessions.add(sessionId);
+  }
+  renderSessionsOverview();
+}
+
+function selectAllProject(projectPath) {
+  const project = state.projects.find(p => p.path === projectPath);
+  if (!project) return;
+  let sessions = project.sessions;
+  if (state.filterTag) {
+    sessions = sessions.filter(s => (s.tags || []).includes(state.filterTag));
+  }
+  const allSelected = sessions.every(s => state.selectedSessions.has(s.id));
+  for (const s of sessions) {
+    if (allSelected) {
+      state.selectedSessions.delete(s.id);
+    } else {
+      state.selectedSessions.add(s.id);
+    }
+  }
+  renderSessionsOverview();
+}
+
+function selectSessionGroup(ids) {
+  const allSelected = ids.every(id => state.selectedSessions.has(id));
+  for (const id of ids) {
+    if (allSelected) {
+      state.selectedSessions.delete(id);
+    } else {
+      state.selectedSessions.add(id);
+    }
+  }
+  renderSessionsOverview();
+}
+
+function renderBatchActionBar() {
+  let bar = document.getElementById('batch-action-bar');
+  if (!state.selectMode || state.selectedSessions.size === 0) {
+    if (bar) bar.remove();
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'batch-action-bar';
+    bar.className = 'batch-action-bar';
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = '<span class="batch-count">' + state.selectedSessions.size + ' selected</span>'
+    + '<button class="btn btn-red" onclick="deleteSelectedSessions()">🗑 Delete Selected</button>'
+    + '<button class="btn" onclick="toggleSelectMode()">Cancel</button>';
+}
+
+async function deleteSelectedSessions() {
+  const count = state.selectedSessions.size;
+  if (count === 0) return;
+  const ok = await customConfirm({
+    icon: '🗑️',
+    title: 'Delete ' + count + ' Sessions',
+    message: 'Permanently delete ' + count + ' session(s)? The JSONL files will be removed from disk and cannot be undone.',
+    confirmText: 'Delete ' + count,
+    confirmClass: 'danger',
+  });
+  if (!ok) return;
+  showToast('Deleting ' + count + ' sessions…');
+  const ids = [...state.selectedSessions];
+  let deleted = 0;
+  let failed = 0;
+  for (const sessionId of ids) {
+    try {
+      await api('delete-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      });
+      deleted++;
+    } catch (err) {
+      failed++;
+    }
+  }
+  state.selectMode = false;
+  state.selectedSessions = new Set();
+  state.selectedSession = null;
+  // Remove batch action bar immediately
+  const bar = document.getElementById('batch-action-bar');
+  if (bar) bar.remove();
+  try {
+    await api('refresh', { method: 'POST' });
+  } catch(e) {}
+  await loadSessions();
+  renderSidebar();
+  document.getElementById('session-detail').classList.add('hidden');
+  document.getElementById('sessions-overview').classList.remove('hidden');
+  renderSessionsOverview();
+  if (failed > 0) {
+    showToast(deleted + ' deleted, ' + failed + ' failed');
+  } else {
+    showToast(deleted + ' sessions deleted');
+  }
 }
 
 // ─── Rename Session (inline) ───
